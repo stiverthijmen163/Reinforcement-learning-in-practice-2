@@ -3,6 +3,7 @@ from pathlib import Path
 from warnings import warn
 from helpers import *
 
+
 class Environment:
     def __init__(
             self,
@@ -117,7 +118,7 @@ class Environment:
                 self.info["agent_moved"] = True
                 self.world_stats["total_agent_moves"] += 1
             case 1:  # Moved into/against an obstacle
-                self.world_stats["total_failed_moves"] += 1
+                self.world_stats["total_collision"] += 1
 
                 if prev_pos == new_pos:  # Agent is stuck (something wrong in code)
                     warn(f"Agent seems to be stuck at position {new_pos}!")
@@ -125,7 +126,7 @@ class Environment:
                 else:  # Move on the line from prev to next position just before hitting the obstacle
                     self.agent_pos = pos_before_next_pos(prev_pos, new_pos)
             case 2:  # Moved out of the space
-                self.world_stats["total_failed_moves"] += 1
+                self.world_stats["total_collision"] += 1
 
                 if prev_pos == new_pos:  # Agent is stuck (something wrong in code)
                     warn(f"Agent seems to be stuck at position {new_pos}!")
@@ -146,8 +147,37 @@ class Environment:
 
 
 
-    # def step(self, action: int) -> tuple[np.ndarray, float, bool]:
-    #     pass
+    def step(self, action_id: int) -> tuple[tuple[float, float], float, bool, dict]:
+        """
+        Takes an action.
+
+        :param action_id: id of the action to take
+
+        :return:
+        """
+        self.world_stats["total_steps"] += 1
+
+        ########################## IMPLEMENT GUI CODE IFF DESIRED ##########################
+
+        # Calculate next position based on the action
+        action = ACTIONS[action_id]
+        next_pos = calc_next_position(self.agent_pos, action[0], action[1])
+
+        # Add stochasticity to the actions
+        val = random.random()
+        if val >= self.sigma:
+            random_dir = (random.uniform(-1, 1), random.uniform(-1, 1))
+            random_step_size = random.uniform(0, 0.2)  # Maximum deviation of 0.2
+            next_pos =calc_next_position(next_pos, random_dir, random_step_size)
+
+        # Calculate the reward for the agent
+        reward = self.reward_fn(next_pos, self.agent_pos)
+
+        # Make the move
+        self._move_agent(next_pos)
+        self.world_stats["cumulative_reward"] += reward
+
+        return self.agent_pos, reward, self.terminal_state, self.info
 
 
     # @staticmethod

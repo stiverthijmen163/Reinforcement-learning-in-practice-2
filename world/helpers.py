@@ -1,4 +1,20 @@
-from math import sqrt
+from math import sqrt, hypot
+global ACTIONS
+
+
+# Create dictionary including all actions in the form ((direction vector), length to travel in that direction)
+directions = [
+    (0, 1),    # North
+    (1, 1),    # North-East
+    (1, 0),    # East
+    (1, -1),   # South-East
+    (0, -1),   # South
+    (-1, -1),  # South-West
+    (-1, 0),   # West
+    (-1, 1),   # North-West
+]
+step_sizes = [0.2, 0.5, 1.0]
+ACTIONS = {i: (dir, s) for i, (dir, s) in enumerate((dir, s) for dir in directions for s in step_sizes)}
 
 
 def agent_bumped_obstacle(x_left: float, y_bottom: float, w: float, h: float,
@@ -182,3 +198,28 @@ def pos_before_next_pos(prev_pos: tuple[float, float], next_pos: tuple[float, fl
     factor = (length - distance) / length
 
     return x1 + dx * factor, y1 + dy * factor
+
+
+def calc_next_position(prev_pos: tuple[float, float], direction: tuple[float, float],
+                       distance: float) -> tuple[float, float]:
+    """
+    Calculates the next position from prev_pos given a direction vector
+    and a distance to travel into that direction.
+
+    :param prev_pos: the position of the agent before making the move in the form (x, y)
+    :param direction: the direction vector in the form (x, y)
+    :param distance: distance to travel along the direction from prev_pos
+
+    :return: the position of the agent after making the move in the form (x, y)
+    """
+    x, y = prev_pos
+    dx, dy = direction
+    length = hypot(dx, dy)
+
+    # Calculate the next position
+    if length == 0:  # In case of no direction
+        next_pos = prev_pos
+    else:
+        next_pos = (x + distance * dx / length, y + distance * dy / length)
+
+    return next_pos
