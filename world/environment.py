@@ -38,16 +38,13 @@ class Environment:
         """
         random.seed(random_seed)
 
-        # Load the space ########################## IMPLEMENT ##########################
+        # Check if space layout exists
         if not space_path.exists():
             raise FileNotFoundError(f"Grid {space_path} does not exist.")
         else:
             self.space_fp = space_path
 
-            # Extract boundary, obstacles and starting position
-            # For example usage ########################## SHOULD BE COMMENTED OUT WHEN FINISHED ##########################
             self.x_max, self.y_max, self.obstacles, self.agent_start_pos, self.target_pos = None, None, None, None, None
-        ########################## END OF IMPLEMENT ##########################
 
         # Initialize up reward function
         if reward_fn is None:
@@ -209,6 +206,7 @@ class Environment:
                 else:  # Move on the line from prev to next position just before hitting the obstacle
                     self.agent_pos = pos_before_next_pos(prev_pos, new_pos)
                     self.info["agent_moved"] = True
+                    self.world_stats["total_agent_moves"] += 1
             case 2:  # Moved out of the space
                 self.world_stats["total_collision"] += 1
                 self.info["collided"] = True
@@ -219,6 +217,7 @@ class Environment:
                 else:  # Move on the line from prev to next position just before hitting the wall
                     self.agent_pos = pos_before_next_pos(prev_pos, new_pos, 0.0001 + self.agent_radius)
                     self.info["agent_moved"] = True
+                    self.world_stats["total_agent_moves"] += 1
             case 3:  # Moved into the target
                 self.agent_pos = new_pos
                 self.terminal_state = True
@@ -239,7 +238,10 @@ class Environment:
 
         :param action_id: id of the action to take
 
-        :return:
+        :return: the position of the agent after making the move,
+                 the reward received for this move,
+                 whether a terminal state has been reached,
+                 and a dictionary containing information regarding the step taken
         """
         self.world_stats["total_steps"] += 1
 
