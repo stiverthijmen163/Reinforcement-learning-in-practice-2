@@ -1,7 +1,13 @@
 import random
 from pathlib import Path
 from warnings import warn
-from helpers import *
+from tqdm import trange
+from datetime import datetime
+from copy import deepcopy
+from world.helpers import *
+from agents.base_agent import BaseAgent
+from world.path_visualizer import visualize_path
+from world.space import Space
 
 
 class Environment:
@@ -14,7 +20,8 @@ class Environment:
             reward_fn: callable = None,
             target_fps: int = 30,
             random_seed: int | float | str | bytes | bytearray | None = 0,
-            agent_radius: float = 1.0
+            agent_radius: float = 1.0,
+            target_radius: float = 1.0,
     ) -> None:
         """
         Initializes the overall space environment used for solving the delivering agent problem.
@@ -27,6 +34,7 @@ class Environment:
         :param target_fps: how fast the simulation should run if the GUI is shown
         :param random_seed: the random seed to use for this environment object
         :param agent_radius: the radius of the agent
+        :param target_radius: the radius of the target
         """
         random.seed(random_seed)
 
@@ -38,14 +46,7 @@ class Environment:
 
             # Extract boundary, obstacles and starting position
             # For example usage ########################## SHOULD BE COMMENTED OUT WHEN FINISHED ##########################
-            self.x_max, self.y_max = 20.0, 20.0  # Boundary of the space
-            self.obstacles = [  # (x_left, y_bottom, w, h)
-                (1.0, 2.2, 2.0, 2.0),
-                (3.1, 4.0, 2.4, 2.0)
-            ]
-            self.agent_start_pos = (5.0, 6.0)  # x, y
-            self.target_pos = (19.0, 18.0)  # x, y
-            self.target_radius = agent_radius  # Should not be dependent on agent_radius
+            self.x_max, self.y_max, self.obstacles, self.agent_start_pos, self.target_pos = None, None, None, None, None
         ########################## END OF IMPLEMENT ##########################
 
         # Initialize up reward function
@@ -64,6 +65,7 @@ class Environment:
         self.gui = None
 
         # Initialize other variables
+        self.target_radius = target_radius
         self.terminal_state = False
         self.sigma = sigma
         self.agent_radius = agent_radius
@@ -71,34 +73,113 @@ class Environment:
         self.world_stats = {}
 
 
-    # def _reset_info(self) -> dict:
-    #     pass
+    def _reset_info(self) -> None:
+        """
+        Resets the info dictionary, containing information about the last move made.
+        """
+        self.info = {
+            "target_reached": False,
+            "agent_moved": False,
+            "actual_action": None,
+            "collided": False
+        }
 
 
-    # @staticmethod
-    # def _reset_world_stats() -> dict:
-    #     pass
+    def _reset_world_stats(self) -> None:
+        """
+        Resets the world stats dictionary, containing information about the environment since the last reset.
+        """
+        self.world_stats = {
+            "cumulative_reward": 0,
+            "total_steps": 0,
+            "total_agent_moves": 0,
+            "total_failed_moves": 0,
+            "total_targets_reached": 0,
+            "total_collision": 0
+        }
 
 
-    # @staticmethod
-    # def _format_grid(grid, agent_pos=None) -> str:
-    #     """
-    #     Not possible for cont state space?
-    #     """
-    #     pass
+    def _validate_start_pos(self, pos: tuple[float, float]):
+        """
+        Validates whether the starting position is valid.
+
+        :param pos: starting position
+
+        :raises ValueError: if the starting position is invalid
+        """
+        move, _ = get_pos_type(pos, self.agent_radius, self.target_pos, self.target_radius,
+                             self.obstacles, (self.x_max, self.y_max))
+        if move in [1, 2]:
+            raise ValueError(f"Start position {pos} is {'in an obstacle' if move == 1 else 'out of bounds'}. "
+                             f"The agent can only start in empty space.")
 
 
-    # def _validate_start_pos(self, pos: tuple[int, int]):
-    #     pass
+    def _initialize_agent_pos(self) -> None:
+        """
+        Initializes the agent's stating position, assigns a random
+        starting position if no initial state is provided.
+        """
+        if self.agent_start_pos:  # Check if the starting position is valid
+            self._validate_start_pos(self.agent_start_pos)
+            self.agent_pos = self.agent_start_pos
+        else:  # Generate random starting position
+            # Generate positions until a valid position is found
+            valid_starting_pos = False
+            while not valid_starting_pos:
+                random_pos = (random.uniform(0, self.x_max), random.uniform(0, self.y_max))
+                if get_pos_type(random_pos, self.agent_radius, self.target_pos, self.target_radius,
+                             self.obstacles, (self.x_max, self.y_max))[0] == 0:
+                    valid_starting_pos = True
+                    self.agent_pos = random_pos
+
+            print(f"\nNo start position provided. "
+                  f"Randomly placed agent at {self.agent_pos}.")
+            print(f"To use this position next run: "
+                  f"--start_pos {self.agent_pos[0]},{self.agent_pos[1]}")
 
 
-    def _initialize_agent_pos(self):
-        ########################## IMPLEMENT ##########################
-        self.agent_pos = self.agent_start_pos
+    def reset(self, **kwargs) -> tuple[float, float]:
+        """
+        Resets the environment to its initial state, keyword arguments can be provided
+        to overwrite the initial arguments provided when initializing the environment.
 
+        :param kwargs: keyword options to overwrite provided initial arguments
 
-    # def reset(self, **kwargs) -> tuple[int, int]:
-    #     pass
+        :return: the agent's initial state
+        """
+        for k, v in kwargs.items():
+            # Go through each possible keyword argument.
+            match k:
+                case "space_fp":
+                    self.space_fp = v
+                case "agent_start_pos":
+                    self.agent_start_pos = v
+                case "no_gui":
+                    self.no_gui = v
+                case "target_fps":
+                    self.target_spf = 1. / v
+                case "sigma" | "reward_fn" | "random_seed":
+                    raise ValueError(f"{k} cannot be changed after initialization.")
+                case _:
+                    raise ValueError(f"{k} is not one of the possible "
+                                     f"keyword arguments.")
+
+        # Reset variables
+        space = Space.load_space(self.space_fp)  # Make sure to also set initial state
+        self.obstacles = space["obstacles"]
+        self.target_pos = space["target_pos"]
+        self.x_max, self.y_max = space["bound"]
+        self.agent_start_pos = self.agent_start_pos if self.agent_start_pos else space["starting_pos"]
+        self.terminal_state = False
+        # print("\nRESET\n")
+        self._reset_info()
+        self._reset_world_stats()
+
+        ########################## IMPLEMENT GUI CODE IFF DESIRED ##########################
+
+        self._initialize_agent_pos()
+
+        return self.agent_pos
 
 
     def _move_agent(self, new_pos: tuple[float, float]) -> None:
@@ -117,22 +198,27 @@ class Environment:
                 self.agent_pos = new_pos
                 self.info["agent_moved"] = True
                 self.world_stats["total_agent_moves"] += 1
+                self.info["collided"] = False
             case 1:  # Moved into/against an obstacle
                 self.world_stats["total_collision"] += 1
+                self.info["collided"] = True
 
                 if prev_pos == new_pos:  # Agent is stuck (something wrong in code)
                     warn(f"Agent seems to be stuck at position {new_pos}!")
                     self.info["agent_moved"] = False
                 else:  # Move on the line from prev to next position just before hitting the obstacle
                     self.agent_pos = pos_before_next_pos(prev_pos, new_pos)
+                    self.info["agent_moved"] = True
             case 2:  # Moved out of the space
                 self.world_stats["total_collision"] += 1
+                self.info["collided"] = True
 
                 if prev_pos == new_pos:  # Agent is stuck (something wrong in code)
                     warn(f"Agent seems to be stuck at position {new_pos}!")
                     self.info["agent_moved"] = False
                 else:  # Move on the line from prev to next position just before hitting the wall
                     self.agent_pos = pos_before_next_pos(prev_pos, new_pos, 0.0001 + self.agent_radius)
+                    self.info["agent_moved"] = True
             case 3:  # Moved into the target
                 self.agent_pos = new_pos
                 self.terminal_state = True
@@ -140,11 +226,11 @@ class Environment:
                 self.world_stats["total_targets_reached"] += 1
                 self.info["agent_moved"] = True
                 self.world_stats["total_agent_moves"] += 1
+                self.info["collided"] = False
             case _:
                 raise ValueError(f"Grid is badly formed. It has a value of "
                                  f"{move} at position "
                                  f"{new_pos}.")
-
 
 
     def step(self, action_id: int) -> tuple[tuple[float, float], float, bool, dict]:
@@ -162,13 +248,17 @@ class Environment:
         # Calculate next position based on the action
         action = ACTIONS[action_id]
         next_pos = calc_next_position(self.agent_pos, action[0], action[1])
+        actual_action = f"{action_id}"
 
         # Add stochasticity to the actions
         val = random.random()
-        if val >= self.sigma:
+        if val <= self.sigma:
             random_dir = (random.uniform(-1, 1), random.uniform(-1, 1))
             random_step_size = random.uniform(0, 0.2)  # Maximum deviation of 0.2
-            next_pos =calc_next_position(next_pos, random_dir, random_step_size)
+            next_pos = calc_next_position(next_pos, random_dir, random_step_size)
+            actual_action += f", and with random move: (({random_dir}), {random_step_size})"
+
+        self.info["actual_action"] = actual_action
 
         # Calculate the reward for the agent
         reward = self.reward_fn(next_pos, self.agent_pos)
@@ -212,6 +302,52 @@ class Environment:
         return reward
 
 
-    # @staticmethod
-    # def evaluate_agent():
-    #     pass
+    @staticmethod
+    def evaluate_agent(space_fp: Path,
+                       agent: BaseAgent,
+                       max_steps: int,
+                       sigma: float = 0.,
+                       agent_start_pos: tuple[float, float] = None,
+                       random_seed: int | float | str | bytes | bytearray = 0,
+                       reward_fn: callable = None, #Comment this line out if you don't want to work with different reward functions
+                       show_images: bool = False,
+                       save_path: Path = None,
+                       save_name: str = None,
+                       save_image: bool = True,
+                       agent_radius: float = 1.0):
+        env = Environment(space_path=space_fp,
+                          no_gui=True,
+                          sigma=sigma,
+                          agent_start_pos=agent_start_pos,
+                          reward_fn=reward_fn,  # Comment this line out if you dont want to work with different reward functions
+                          target_fps=-1,
+                          random_seed=random_seed,
+                          agent_radius=agent_radius)
+
+        state = env.reset()
+
+        # Add initial agent position to the path
+        agent_path = [env.agent_pos]
+        collision_path = [False]
+
+        info = {"targets_reached": False}
+
+        for _ in trange(max_steps, desc="Evaluating agent"):
+            action = agent.take_action(state)
+            state, _, terminated, info = env.step(action)
+
+            agent_path.append(state)
+            collision_path.append(info["collided"])
+
+            if terminated:
+                break
+
+        env.world_stats["targets_remaining"] = 0 if info["target_reached"] else 1
+
+        path_plot = visualize_path(deepcopy(env), agent_path, collision_path)
+        file_name = datetime.now().strftime("%Y-%m-%d__%H-%M-%S-%f")[
+                    :-3] if not save_name else save_name  # Milliseconds precision to avoid overwriting files
+
+        save_results(file_name, env.world_stats, path_plot, show_images, save_path, save_image)
+
+        return dict(env.world_stats)  # Return stats so it can be used in evaluation

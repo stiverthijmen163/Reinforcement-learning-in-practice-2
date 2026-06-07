@@ -1,4 +1,6 @@
-from math import sqrt, hypot
+from math import sqrt, dist
+from pathlib import Path
+
 global ACTIONS
 
 
@@ -154,8 +156,20 @@ def get_pos_type(agent_pos: tuple[float, float], agent_radius: float, target_pos
     if during_move:
         if prev_pos is None:
             raise ValueError(f"No previous position was provided!")
+        bound_to_obstacles = [(0.0, boundary[1], boundary[0], boundary[1]),
+                              (boundary[0], 0.0, boundary[0], boundary[1]), ]
         contact, pos = agent_bumped_obstacle_during_move(prev_pos, agent_pos, agent_radius, obstacles)
-        return 1, pos
+        contact_bound, pos_b = agent_bumped_obstacle_during_move(prev_pos, agent_pos, agent_radius, bound_to_obstacles)
+
+        # Check whether contact was made
+        if contact and contact_bound:  # If contact with obstacle and out of bound, check which was hit first
+            if dist(prev_pos, pos) < dist(prev_pos, pos_b):
+                return 1, pos
+            return 2, pos_b
+        elif contact:  # Contact with obstacle(s) only
+            return 1, pos
+        elif contact_bound:  # Out of bounds only
+            return 2, pos_b
 
 
     move = 0
@@ -214,7 +228,7 @@ def calc_next_position(prev_pos: tuple[float, float], direction: tuple[float, fl
     """
     x, y = prev_pos
     dx, dy = direction
-    length = hypot(dx, dy)
+    length = dist((0.0, 0.0), direction)
 
     # Calculate the next position
     if length == 0:  # In case of no direction
@@ -223,3 +237,7 @@ def calc_next_position(prev_pos: tuple[float, float], direction: tuple[float, fl
         next_pos = (x + distance * dx / length, y + distance * dy / length)
 
     return next_pos
+
+
+def save_results(file_name: str, world_stats: dict, path_image, show_images: bool, save_path: Path = None, save_image: bool = True) -> None:
+    pass
