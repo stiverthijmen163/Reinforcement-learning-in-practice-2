@@ -15,41 +15,10 @@ sys.path.insert(0, str(Path(__file__).parent / "world"))
 
 from agents.dqn_agent import DQNAgent
 from world.environment import Environment
+from world.state import get_state
 
 # 24 actions: 8 directions × 3 step sizes (0.2, 0.5, 1.0), as defined in world/helpers.py ACTIONS.
 N_ACTIONS = 24
-
-
-def _reset_env(env: Environment) -> np.ndarray:
-    """Reset the environment for a new episode.
-
-    Environment.reset() is not yet implemented, so we initialise
-    the required internal state manually.
-    """
-    env.terminal_state = False
-    env.info = {}
-    env.world_stats = {
-        "total_steps": 0,
-        "total_agent_moves": 0,
-        "total_collision": 0,
-        "cumulative_reward": 0,
-        "total_targets_reached": 0,
-    }
-    env._initialize_agent_pos()
-    return _get_state(env)
-
-
-def _get_state(env: Environment) -> np.ndarray:
-    """Build the normalised 10-D state vector [x/W, y/H, d1..d8].
-
-    LiDAR sensor readings (d1..d8) are not yet implemented in environment.py;
-    they are set to 1.0 (maximum normalised range) as a placeholder until
-    ray-casting is added.
-    """
-    x, y = env.agent_pos
-    sensors = [1.0] * 8
-    return np.array([x / env.x_max, y / env.y_max] + sensors, dtype=np.float32)
-
 
 def parse_args():
     """Parse command-line arguments."""
@@ -84,7 +53,7 @@ def parse_args():
                    help="Initial exploration rate")
     p.add_argument("--min_epsilon", type=float, default=0.01,
                    help="Minimum exploration rate")
-    p.add_argument("--epsilon_anneal_steps", type=int, default=100000,
+    p.add_argument("--epsilon_anneal_steps", type=int, default=1000000,
                    help="Number of training steps to linearly anneal epsilon")
     p.add_argument("--batch_size", type=int, default=32,
                    help="Batch size for training")
@@ -98,6 +67,10 @@ def parse_args():
                    help="Evaluate every N episodes")
     p.add_argument("--eval_episodes", type=int, default=10,
                    help="Number of evaluation episodes")
+    p.add_argument("--patience", type=int, default=20,
+                   help="Stop if eval reward has not improved for this many evaluations")
+    p.add_argument("--min_delta", type=float, default=10.0,
+                   help="Minimum improvement in mean eval reward to count as progress")
 
     return p.parse_args()
 
@@ -105,29 +78,8 @@ def parse_args():
 def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          episodes, max_steps, learning_rate, gamma, epsilon,
          min_epsilon, epsilon_anneal_steps, batch_size, replay_capacity, target_update_freq,
-         eval_freq, eval_episodes):
-    """Main training loop.
-    
-    Args:
-        grid_paths: List of grid file paths.
-        no_gui: Whether to disable rendering.
-        sigma: Environmental stochasticity.
-        fps: Frames per second for rendering.
-        random_seed: Random seed.
-        start_pos: Starting position tuple (or None).
-        episodes: Number of training episodes.
-        max_steps: Maximum steps per episode.
-        learning_rate: DQN learning rate.
-        gamma: Discount factor.
-        epsilon: Initial exploration rate.
-        epsilon_decay: Epsilon decay per episode.
-        min_epsilon: Minimum exploration rate.
-        batch_size: Batch size for training.
-        replay_capacity: Replay buffer capacity.
-        target_update_freq: Target network update frequency.
-        eval_freq: Evaluation frequency.
-        eval_episodes: Number of evaluation episodes.
-    """
+         eval_freq, eval_episodes, patience, min_delta):
+    """Main training loop."""
     
     # Set random seed for reproducibility
     np.random.seed(random_seed)
@@ -177,14 +129,20 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     episode_rewards = []
     episode_lengths = []
 
+    # Early stopping state: track the best mean eval reward and how many
+    # consecutive evaluations have passed without a meaningful improvement.
+    best_eval = -float("inf")
+    evals_without_improvement = 0
+
     for episode in trange(episodes, desc="Training"):
-        state = _reset_env(env)
+        env.reset()
+        state = get_state(env)
         total_reward = 0.0
 
         for step in range(max_steps):
             action = agent.take_action(state)
             _, reward, done, _ = env.step(action)
-            next_state = _get_state(env)
+            next_state = get_state(env)
 
             agent.update(state, action, reward, next_state, done)
             state = next_state
@@ -193,7 +151,6 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
             if done:
                 break
 
-        agent.decay_epsilon()
         episode_rewards.append(total_reward)
         episode_lengths.append(step + 1)
 
@@ -203,24 +160,37 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
             eval_rewards = []
 
             for _ in range(eval_episodes):
-                s = _reset_env(env)
+                env.reset()
+                s = get_state(env)
                 ep_r = 0.0
                 for _ in range(max_steps):
                     a = agent.greedy_action(s)
                     _, r, d, _ = env.step(a)
-                    s = _get_state(env)
+                    s = get_state(env)
                     ep_r += r
                     if d:
                         break
                 eval_rewards.append(ep_r)
 
             agent.set_training(True)
+            mean_eval = np.mean(eval_rewards)
             print(
                 f"\nEpisode {episode + 1:4d} | "
-                f"Eval reward: {np.mean(eval_rewards):8.2f} | "
+                f"Eval reward: {mean_eval:8.2f} | "
                 f"Train reward (last {eval_freq}): {np.mean(episode_rewards[-eval_freq:]):8.2f} | "
                 f"Epsilon: {agent.epsilon:.4f}"
             )
+
+            # Check for improvement: reset counter if reward improved by at least
+            # min_delta, otherwise increment. Stop when patience is exhausted.
+            if mean_eval > best_eval + min_delta:
+                best_eval = mean_eval
+                evals_without_improvement = 0
+            else:
+                evals_without_improvement += 1
+                if evals_without_improvement >= patience:
+                    print(f"\nEarly stop: no improvement for {patience} evaluations.")
+                    break
 
     print("\nTraining completed.")
     print(f"Final epsilon    : {agent.epsilon:.4f}")
@@ -248,4 +218,6 @@ if __name__ == "__main__":
         args.target_update_freq,
         args.eval_freq,
         args.eval_episodes,
+        args.patience,
+        args.min_delta,
     )
