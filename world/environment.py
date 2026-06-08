@@ -20,8 +20,8 @@ class Environment:
             reward_fn: callable = None,
             target_fps: int = 30,
             random_seed: int | float | str | bytes | bytearray | None = 0,
-            agent_radius: float = 1.0,
-            target_radius: float = 1.0,
+            agent_radius: float = 0.1,
+            target_radius: float = 0.2,
     ) -> None:
         """
         Initializes the overall space environment used for solving the delivering agent problem.
@@ -200,22 +200,22 @@ class Environment:
                 self.world_stats["total_collision"] += 1
                 self.info["collided"] = True
 
-                if prev_pos == new_pos:  # Agent is stuck (something wrong in code)
-                    warn(f"Agent seems to be stuck at position {new_pos}!")
+                if prev_pos == pos_of_hit:  # Agent is stuck (something wrong in code)
+                    warn(f"Agent seems to be stuck at position {pos_of_hit}!")
                     self.info["agent_moved"] = False
                 else:  # Move on the line from prev to next position just before hitting the obstacle
-                    self.agent_pos = pos_before_next_pos(prev_pos, new_pos)
+                    self.agent_pos = pos_before_next_pos(prev_pos, pos_of_hit)
                     self.info["agent_moved"] = True
                     self.world_stats["total_agent_moves"] += 1
             case 2:  # Moved out of the space
                 self.world_stats["total_collision"] += 1
                 self.info["collided"] = True
 
-                if prev_pos == new_pos:  # Agent is stuck (something wrong in code)
-                    warn(f"Agent seems to be stuck at position {new_pos}!")
+                if prev_pos == pos_of_hit:  # Agent is stuck (something wrong in code)
+                    warn(f"Agent seems to be stuck at position {pos_of_hit}!")
                     self.info["agent_moved"] = False
                 else:  # Move on the line from prev to next position just before hitting the wall
-                    self.agent_pos = pos_before_next_pos(prev_pos, new_pos, 0.0001 + self.agent_radius)
+                    self.agent_pos = pos_before_next_pos(prev_pos, pos_of_hit, 0.0001 + self.agent_radius)
                     self.info["agent_moved"] = True
                     self.world_stats["total_agent_moves"] += 1
             case 3:  # Moved into the target
@@ -305,23 +305,33 @@ class Environment:
 
 
     @staticmethod
-    def evaluate_agent(space_fp: Path,
-                       agent: BaseAgent,
-                       max_steps: int,
-                       sigma: float = 0.,
+    def evaluate_agent(space_fp: Path, agent: BaseAgent, max_steps: int, sigma: float = 0.,
                        agent_start_pos: tuple[float, float] = None,
-                       random_seed: int | float | str | bytes | bytearray = 0,
-                       reward_fn: callable = None, #Comment this line out if you don't want to work with different reward functions
-                       show_images: bool = False,
-                       save_path: Path = None,
-                       save_name: str = None,
-                       save_image: bool = True,
-                       agent_radius: float = 1.0):
+                       random_seed: int | float | str | bytes | bytearray = 0, reward_fn: callable = None,
+                       save_path: Path = None, save_name: str = None,
+                       save_image: bool = True, agent_radius: float = 0.1) -> dict:
+        """
+        Evaluates an agent on a specified space layout, saves the results accordingly.
+
+        :param space_fp: path to the space layout file
+        :param agent: agent to use for evaluation
+        :param max_steps: maximum number of steps allowed in an episode
+        :param sigma: stochasticity of the environment
+        :param agent_start_pos: starting position of the agent
+        :param random_seed: seed for reproducibility
+        :param reward_fn: reward function to use
+        :param save_path: location to save results to
+        :param save_name: name of files to save results to
+        :param save_image: whether to save the figure containing the path taken by the agent
+        :param agent_radius: radius of the agent
+
+        :return: dictionary containing information about the entire run
+        """
         env = Environment(space_path=space_fp,
                           no_gui=True,
                           sigma=sigma,
                           agent_start_pos=agent_start_pos,
-                          reward_fn=reward_fn,  # Comment this line out if you dont want to work with different reward functions
+                          reward_fn=reward_fn,
                           target_fps=-1,
                           random_seed=random_seed,
                           agent_radius=agent_radius)
@@ -350,6 +360,6 @@ class Environment:
         file_name = datetime.now().strftime("%Y-%m-%d__%H-%M-%S-%f")[
                     :-3] if not save_name else save_name  # Milliseconds precision to avoid overwriting files
 
-        save_results(file_name, env.world_stats, path_plot, show_images, save_path, save_image)
+        save_results(file_name, env.world_stats, path_plot, save_path, save_image)
 
         return dict(env.world_stats)  # Return stats so it can be used in evaluation

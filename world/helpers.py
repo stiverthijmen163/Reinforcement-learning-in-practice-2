@@ -1,5 +1,7 @@
 from math import sqrt, dist
 from pathlib import Path
+from warnings import warn
+import matplotlib.pyplot as plt
 
 global ACTIONS
 
@@ -157,7 +159,9 @@ def get_pos_type(agent_pos: tuple[float, float], agent_radius: float, target_pos
         if prev_pos is None:
             raise ValueError(f"No previous position was provided!")
         bound_to_obstacles = [(0.0, boundary[1], boundary[0], boundary[1]),
-                              (boundary[0], 0.0, boundary[0], boundary[1]), ]
+                              (boundary[0], 0.0, boundary[0], boundary[1]),
+                              (0.0, -boundary[1], boundary[0], boundary[1]),
+                              (-boundary[0], 0.0, boundary[0], boundary[1])]
         contact, pos = agent_bumped_obstacle_during_move(prev_pos, agent_pos, agent_radius, obstacles)
         contact_bound, pos_b = agent_bumped_obstacle_during_move(prev_pos, agent_pos, agent_radius, bound_to_obstacles)
 
@@ -239,5 +243,34 @@ def calc_next_position(prev_pos: tuple[float, float], direction: tuple[float, fl
     return next_pos
 
 
-def save_results(file_name: str, world_stats: dict, path_image, show_images: bool, save_path: Path = None, save_image: bool = True) -> None:
-    pass
+def save_results(file_name: str, world_stats: dict, path_figure: plt.Figure,
+                 save_path: Path = None, save_image: bool = True) -> None:
+    """
+    Saves and prints the results of the simulation into a file and its corresponding path taken.
+
+    :param file_name: name of the .txt and .pdf file
+    :param world_stats: dict containing information about the entire run
+    :param path_figure: figure containing the path
+    :param save_path: location to save the files to
+    :param save_image: whether to save the figure and results
+    :return:
+    """
+    out_dir = Path("results/") if not save_path else save_path
+    if not out_dir.exists():
+        warn("Evaluation output directory does not exist. Creating the "
+             "directory.")
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Print evaluation results
+    print("Evaluation complete. Results:")
+    # Text file
+    out_fp = out_dir / f"{file_name}.txt"
+    with open(out_fp, "w") as f:
+        for key, value in world_stats.items():
+            f.write(f"{key}: {value}\n")
+            print(f"{key}: {value}")
+
+    if save_image:
+        # Image file
+        out_fp = out_dir / f"{file_name}.pdf"
+        path_figure.savefig(out_fp)

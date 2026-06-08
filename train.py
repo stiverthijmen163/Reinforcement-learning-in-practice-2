@@ -72,9 +72,9 @@ def main(grid_paths: list[Path], no_gui: bool, iters: int, fps: int,
             agent.update(state, reward, info["actual_action"])
 
         # Evaluate the agent
-        print(Environment.evaluate_agent(grid, agent, iters, sigma,
+        Environment.evaluate_agent(grid, agent, iters, sigma,
                                    agent_start_pos=initial_pos,
-                                   random_seed=random_seed))
+                                   random_seed=random_seed)
 
 
 if __name__ == '__main__':
