@@ -215,7 +215,7 @@ class Environment:
                     warn(f"Agent seems to be stuck at position {pos_of_hit}!")
                     self.info["agent_moved"] = False
                 else:  # Move on the line from prev to next position just before hitting the wall
-                    self.agent_pos = pos_before_next_pos(prev_pos, pos_of_hit, 0.0001 + self.agent_radius)
+                    self.agent_pos = pos_before_next_pos(prev_pos, pos_of_hit, 0.0001)
                     self.info["agent_moved"] = True
                     self.world_stats["total_agent_moves"] += 1
             case 3:  # Moved into the target
