@@ -3,7 +3,7 @@
 We define the base class for all agents in this file.
 """
 from abc import ABC, abstractmethod
-
+import numpy as np
 
 class BaseAgent(ABC):
     def __init__(self):
@@ -23,7 +23,9 @@ class BaseAgent(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def update(self, state: tuple[float, float], reward: float, action: int):
+    # DQN & PPO require next_state to compute the bootstrap target using the Bellman equation: Q_target = reward + γ * max_a' Q_network(next_state)
+    # DQN & PPO also require done to know when to stop bootstrapping (i.e., if done is True, then Q_target = reward)
+    def update(self, state: np.ndarray, action: int, reward: float, next_state: np.ndarray, done: bool): 
         """Any code that processes a reward given the state and updates the agent.
 
         Args:
