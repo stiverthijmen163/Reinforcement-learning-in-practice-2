@@ -37,7 +37,6 @@ def parse_args():
                    help="Random seed for reproducibility")
     p.add_argument("--start_pos", type=str, default=None,
                    help="Start position as x,y floats (e.g., 5.0,6.0)")
-
     # Training arguments
     p.add_argument("--episodes", type=int, default=1000,
                    help="Number of training episodes")
@@ -53,8 +52,8 @@ def parse_args():
                    help="Initial exploration rate")
     p.add_argument("--min_epsilon", type=float, default=0.01,
                    help="Minimum exploration rate")
-    p.add_argument("--epsilon_anneal_steps", type=int, default=1000000,
-                   help="Number of training steps to linearly anneal epsilon")
+    p.add_argument("--epsilon_anneal_steps", type=int, default=None,
+                   help="Steps to anneal epsilon (default: episodes × max_steps // 2)")
     p.add_argument("--batch_size", type=int, default=32,
                    help="Batch size for training")
     p.add_argument("--replay_capacity", type=int, default=10000,
@@ -100,6 +99,16 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         random_seed=random_seed,
     )
 
+    # Annealing epsilon over the first half of the training budget so exploration dominates
+    # early and exploitation dominates late. Can still be set manually via --epsilon_anneal_steps.
+    if epsilon_anneal_steps is None:
+        epsilon_anneal_steps = episodes * max_steps // 2
+
+    # Normalise rewards by max_steps so the step penalty stays meaningful relative to
+    # the target reward. Dividing by the normal target reward (4000) makes step=-0.00025,
+    # which is so small that the Q-values seems to collapse and learning fails.
+    reward_scale = float(max_steps)
+
     # Initialise DQN agent
     agent = DQNAgent(
         n_actions=N_ACTIONS,
@@ -125,6 +134,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     print(f"  Batch size       : {batch_size}")
     print(f"  Replay capacity  : {replay_capacity}")
     print(f"  Target update    : every {target_update_freq} steps")
+    print(f"  Reward scale     : {reward_scale:.0f}")
 
     episode_rewards = []
     episode_lengths = []
@@ -149,7 +159,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
             next_state = get_state(env)
             all_training_positions.append(env.agent_pos)
 
-            agent.update(state, action, reward, next_state, done)
+            agent.update(state, action, reward / reward_scale, next_state, done)
             state = next_state
             total_reward += reward
 

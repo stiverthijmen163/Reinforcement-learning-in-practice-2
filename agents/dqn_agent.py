@@ -135,8 +135,11 @@ class DQNNetwork:
         dW1 = np.dot(x.T, dh1)
         db1 = np.sum(dh1, axis=0, keepdims=True)
 
-        # Clip gradients to prevent exploding weights (large goal reward causes large TD errors)
-        clip = 1.0
+        # Clip gradients to prevent exploding weights.
+        # Must be large enough to allow Q-values to grow toward the target reward
+        # So increased this, so should be better like this. 
+        # TODO: Might be something that can be tuned a bit further
+        clip = 5.0
         dW3, db3 = np.clip(dW3, -clip, clip), np.clip(db3, -clip, clip)
         dW2, db2 = np.clip(dW2, -clip, clip), np.clip(db2, -clip, clip)
         dW1, db1 = np.clip(dW1, -clip, clip), np.clip(db1, -clip, clip)
@@ -202,8 +205,9 @@ class DQNAgent(BaseAgent):
         # Experience replay buffer
         self.replay_buffer = ReplayBuffer(capacity=replay_capacity)
 
-        # Warm-up: don't train until buffer has this many transitions
-        self.warmup = min(replay_capacity, 10000)
+        # Warm-up: don't train until buffer has this many transitions.
+        # Made a bit smaller relative to replay capacity so training starts a bit earlier
+        self.warmup = min(replay_capacity // 10, 1000)
         # Epsilon annealing (linear): track start/end and anneal duration (in training steps)
         self.epsilon_start = epsilon
         self.epsilon_end = min_epsilon
