@@ -112,3 +112,53 @@ Because of this, we recommend using it only while testing/debugging and not whil
 
 Below are example commands for running each implemented agent script.
 
+### DQN Agent
+
+Train a single DQN agent on a space:
+
+```bash
+python train_dqn.py spaces/easy_space.pickle --no_gui --episodes 1000 --sigma 0.1
+```
+
+---
+
+## Evaluation System
+
+The `evaluation/` folder contains scripts for running many experiments at once and analyzing the results.
+
+### 1. Configure experiments — `evaluation/config.py`
+
+Edit this file to define what to run. The key settings are:
+
+- **`SPACES`** — which space files to train on
+- **`AGENTS`** — which agents to run
+- Hyperparameter lists — any parameter with multiple values will be swept (all combinations are run)
+- **`SAVE_IMAGES = False`** — set `True` to save path and heatmap images per experiment
+- **`VERBOSE = False`** — set `True` to see full training output; `False` shows only the progress bar
+
+### 2. Run experiments — `evaluation/run_experiments.py`
+
+```bash
+# Run all experiments in parallel (fastest)
+python -m evaluation.run_experiments
+
+# Run sequentially (useful for debugging)
+python -m evaluation.run_experiments --sequential
+```
+
+Results are saved to `results/experiments/<timestamp>/`:
+- `experiment_results.csv` — one row per experiment with config + final eval metrics
+- `training_curves.csv` — episode reward and length per episode per experiment
+- `exp_NNNN_heatmap.pdf` / `exp_NNNN.pdf` — path and heatmap images (if `SAVE_IMAGES = True`)
+
+### 3. Analyze results — `evaluation/analyze_results.py`
+
+```bash
+python -m evaluation.analyze_results results/experiments/<timestamp>
+```
+
+Output is saved to `results/experiments/<timestamp>/analysis/`:
+- `effect_<param>.png` — bar charts showing how each varying hyperparameter affects eval metrics
+- `training_curves_<param>_<agent>_<space>.png` — mean training curves with ± std band per parameter value
+- `best_configs.csv` — best-performing config per (agent, space) combination
+

@@ -77,8 +77,18 @@ def parse_args():
 def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          episodes, max_steps, learning_rate, gamma, epsilon,
          min_epsilon, epsilon_anneal_steps, batch_size, replay_capacity, target_update_freq,
-         eval_freq, eval_episodes, patience, min_delta):
-    """Main training loop."""
+         eval_freq, eval_episodes, patience, min_delta,
+         save_path=None, save_image=True, experiment_name=None):
+    """Main training loop.
+
+    Extra params for run_experiments.py:
+      save_path:        where to save images/results (None = results/)
+      save_image:       whether to save path + heatmap images
+      experiment_name:  filename stem for saved files (None = timestamp)
+
+    Returns a dict with episode_rewards, episode_lengths, final_epsilon,
+    training_steps, and eval_* metrics from the final greedy evaluation.
+    """
     
     # Set random seed for reproducibility
     np.random.seed(random_seed)
@@ -212,7 +222,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     print(f"Training steps   : {agent.training_step}")
 
     agent.set_training(False)
-    Environment.evaluate_agent(
+    eval_stats = Environment.evaluate_agent(
         space_fp=grid_paths[0],
         agent=agent,
         max_steps=max_steps,
@@ -220,7 +230,18 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         agent_start_pos=agent_start,
         random_seed=random_seed,
         training_positions=all_training_positions,
+        save_path=save_path,
+        save_name=experiment_name,
+        save_image=save_image,
     )
+
+    return {
+        "episode_rewards":  episode_rewards,
+        "episode_lengths":  episode_lengths,
+        "final_epsilon":    agent.epsilon,
+        "training_steps":   agent.training_step,
+        **{f"eval_{k}": v for k, v in eval_stats.items()},
+    }
 
 
 if __name__ == "__main__":
