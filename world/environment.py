@@ -6,8 +6,9 @@ from datetime import datetime
 from copy import deepcopy
 from world.helpers import *
 from agents.base_agent import BaseAgent
-from world.path_visualizer import visualize_path
+from world.path_visualizer import visualize_path, visualize_heatmap
 from world.space import Space
+from world.state import get_state
 
 
 class Environment:
@@ -309,7 +310,8 @@ class Environment:
                        agent_start_pos: tuple[float, float] = None,
                        random_seed: int | float | str | bytes | bytearray = 0, reward_fn: callable = None,
                        save_path: Path = None, save_name: str = None,
-                       save_image: bool = True, agent_radius: float = 0.1) -> dict:
+                       save_image: bool = True, agent_radius: float = 0.1,
+                       training_positions: list[tuple[float, float]] = None) -> dict:
         """
         Evaluates an agent on a specified space layout, saves the results accordingly.
 
@@ -324,6 +326,9 @@ class Environment:
         :param save_name: name of files to save results to
         :param save_image: whether to save the figure containing the path taken by the agent
         :param agent_radius: radius of the agent
+        :param training_positions: all (x, y) positions visited during training.
+                                   Used to create a heatmap of the agent's positions 
+                                   during trianing
 
         :return: dictionary containing information about the entire run
         """
@@ -336,7 +341,8 @@ class Environment:
                           random_seed=random_seed,
                           agent_radius=agent_radius)
 
-        state = env.reset()
+        env.reset()
+        state = get_state(env)
 
         # Add initial agent position to the path
         agent_path = [env.agent_pos]
@@ -346,9 +352,10 @@ class Environment:
 
         for _ in trange(max_steps, desc="Evaluating agent"):
             action = agent.take_action(state)
-            state, _, terminated, info = env.step(action)
+            _, _, terminated, info = env.step(action)
+            state = get_state(env)
 
-            agent_path.append(state)
+            agent_path.append(env.agent_pos)
             collision_path.append(info["collided"])
 
             if terminated:
@@ -356,10 +363,23 @@ class Environment:
 
         env.world_stats["targets_remaining"] = 0 if info["target_reached"] else 1
 
-        path_plot = visualize_path(deepcopy(env), agent_path, collision_path)
+        env_snapshot = deepcopy(env)
         file_name = datetime.now().strftime("%Y-%m-%d__%H-%M-%S-%f")[
                     :-3] if not save_name else save_name  # Milliseconds precision to avoid overwriting files
 
+        path_plot = visualize_path(env_snapshot, agent_path, collision_path)
         save_results(file_name, env.world_stats, path_plot, save_path, save_image)
+
+        # Save heatmap of agent positions
+        if save_image and training_positions is not None:
+            heatmap_plot = visualize_heatmap(
+                env_snapshot,
+                training_positions,
+                overlay_path=agent_path,
+                overlay_collision_path=collision_path,
+                title="Training visit frequency + final greedy episode",
+            )
+            out_dir = Path("results/") if not save_path else save_path
+            heatmap_plot.savefig(out_dir / f"{file_name}_heatmap.pdf")
 
         return dict(env.world_stats)  # Return stats so it can be used in evaluation

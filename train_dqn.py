@@ -129,6 +129,9 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     episode_rewards = []
     episode_lengths = []
 
+    # Track all positions visited during each episode for heatmap visualization
+    all_training_positions = []
+
     # Early stopping state: track the best mean eval reward and how many
     # consecutive evaluations have passed without a meaningful improvement.
     best_eval = -float("inf")
@@ -136,6 +139,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
 
     for episode in trange(episodes, desc="Training"):
         env.reset()
+        all_training_positions.append(env.agent_pos)
         state = get_state(env)
         total_reward = 0.0
 
@@ -143,6 +147,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
             action = agent.take_action(state)
             _, reward, done, _ = env.step(action)
             next_state = get_state(env)
+            all_training_positions.append(env.agent_pos)
 
             agent.update(state, action, reward, next_state, done)
             state = next_state
@@ -195,6 +200,17 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     print("\nTraining completed.")
     print(f"Final epsilon    : {agent.epsilon:.4f}")
     print(f"Training steps   : {agent.training_step}")
+
+    agent.set_training(False)
+    Environment.evaluate_agent(
+        space_fp=grid_paths[0],
+        agent=agent,
+        max_steps=max_steps,
+        sigma=0.,
+        agent_start_pos=agent_start,
+        random_seed=random_seed,
+        training_positions=all_training_positions,
+    )
 
 
 if __name__ == "__main__":

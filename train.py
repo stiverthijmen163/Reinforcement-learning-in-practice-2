@@ -57,14 +57,18 @@ def main(grid_paths: list[Path], no_gui: bool, iters: int, fps: int,
         # Always reset the environment to initial state
         initial_pos = env.reset()
         state = initial_pos
+
+        # Track all positions visited during each episode for heatmap visualization
+        all_training_positions = [env.agent_pos]
         for _ in trange(iters):
-            
+
             # Agent takes an action based on the latest observation and info.
             action = agent.take_action(state)
 
             # The action is performed in the environment
             state, reward, terminated, info = env.step(action)
-            
+            all_training_positions.append(env.agent_pos)
+
             # If the final state is reached, stop.
             if terminated:
                 break
@@ -74,7 +78,8 @@ def main(grid_paths: list[Path], no_gui: bool, iters: int, fps: int,
         # Evaluate the agent
         Environment.evaluate_agent(grid, agent, iters, sigma,
                                    agent_start_pos=initial_pos,
-                                   random_seed=random_seed)
+                                   random_seed=random_seed,
+                                   training_positions=all_training_positions)
 
 
 if __name__ == '__main__':
