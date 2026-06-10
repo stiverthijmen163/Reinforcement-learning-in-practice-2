@@ -20,18 +20,20 @@ class Config:
         # "spaces/test_space.pickle": {"start_pos": None},
     }
 
-    AGENTS = ["dqn"]
+    AGENTS = ["dqn", "ppo"]
 
     # Shared parameters
     SIGMAS      = [0.0, 0.1]   # Stochasticity
     RANDOM_SEED = 0             # Fixed seed for reproducibility across all runs
 
-    # DQN hyperparameters + perhaps also some for PPO TODO: write this correct 
-    EPISODES             = [10, 20] #TODO: Set these normal for real experiments, this was to test quickly
-    MAX_STEPS            = [200]
-    LEARNING_RATES       = [0.001]
-    GAMMAS               = [0.99]
-    BATCH_SIZES          = [32]
+    # Shared training parameters (used by both DQN and PPO)
+    EPISODES      = [10, 20]  # TODO: set higher for real experiments
+    MAX_STEPS     = [200]
+    LEARNING_RATES = [0.001]
+    GAMMAS        = [0.99]
+    BATCH_SIZES   = [32]
+
+    # DQN-specific hyperparameters
     REPLAY_CAPACITIES    = [10000]
     TARGET_UPDATE_FREQS  = [1000]
     EPSILONS             = [1.0]
@@ -39,6 +41,12 @@ class Config:
     EPSILON_ANNEAL_STEPS = [None]   # None: default: episodes × max_steps // 2
     PATIENCE             = [20]
     MIN_DELTA            = [10.0]
+
+    # PPO-specific hyperparameters
+    ROLLOUT_SIZES  = [512]
+    GAE_LAMBDAS    = [0.95]
+    CLIP_EPSILONS  = [0.2]
+    UPDATE_EPOCHS  = [4]
 
     # Evaluation parameters during training
     EVAL_FREQ     = 50    # Run a greedy eval every N training episodes

@@ -1,4 +1,5 @@
 import random
+import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -6,9 +7,12 @@ import numpy as np
 import torch
 from tqdm import trange
 
+sys.path.insert(0, str(Path(__file__).parent / "world"))
+
 from agents.ppo_agent import PPOAgent
 from world.environment import Environment
 from world.helpers import ACTIONS
+from world.state import get_state
 
 
 SENSOR_DIRECTIONS = np.array(
@@ -326,6 +330,115 @@ def train(args):
             )
 
     return agent
+
+
+def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
+         episodes, max_steps, lr, gamma, gae_lambda, clip_epsilon,
+         update_epochs, batch_size, rollout_size,
+         eval_freq, eval_episodes,
+         save_path=None, save_image=True, experiment_name=None):
+    """PPO training loop compatible with run_experiments.py.
+
+    Returns a dict with episode_rewards, episode_lengths, and eval_* metrics.
+    """
+    random.seed(random_seed)
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+
+    agent_start = None
+    if start_pos is not None:
+        if isinstance(start_pos, str):
+            x_str, y_str = start_pos.split(",")
+            agent_start = (float(x_str), float(y_str))
+        else:
+            agent_start = start_pos
+
+    env = Environment(
+        space_path=grid_paths[0],
+        no_gui=no_gui,
+        sigma=sigma,
+        agent_start_pos=agent_start,
+        target_fps=fps,
+        random_seed=random_seed,
+    )
+
+    state_dim = 10  # [x/W, y/H, d1..d8] matches evaluate_agent
+    action_dim = len(ACTIONS)
+
+    agent = PPOAgent(
+        state_dim=state_dim,
+        action_dim=action_dim,
+        lr=lr,
+        gamma=gamma,
+        gae_lambda=gae_lambda,
+        clip_epsilon=clip_epsilon,
+        update_epochs=update_epochs,
+        batch_size=batch_size,
+    )
+
+    episode_rewards = []
+    episode_lengths = []
+    all_training_positions = []
+
+    for episode in trange(episodes, desc="PPO Training"):
+        env.reset(agent_start_pos=agent_start)
+        obs = get_state(env)
+        all_training_positions.append(env.agent_pos)
+
+        episode_reward = 0.0
+        done = False
+
+        for step in range(max_steps):
+            action, log_prob, value = agent.choose_action(obs)
+            _, reward, terminated, _ = env.step(action)
+            next_obs = get_state(env)
+            all_training_positions.append(env.agent_pos)
+            done = terminated
+
+            agent.remember(
+                state=obs,
+                action=action,
+                log_prob=log_prob,
+                reward=reward,
+                done=done,
+                value=value,
+            )
+
+            episode_reward += reward
+            obs = next_obs
+
+            if len(agent.rewards) >= rollout_size:
+                last_value = 0 if done else agent.get_value(obs)
+                agent.learn(last_value)
+
+            if done:
+                break
+
+        if len(agent.rewards) > 0:
+            last_value = 0 if done else agent.get_value(obs)
+            agent.learn(last_value=last_value)
+
+        episode_rewards.append(episode_reward)
+        episode_lengths.append(step + 1)
+
+    eval_stats = Environment.evaluate_agent(
+        space_fp=grid_paths[0],
+        agent=agent,
+        max_steps=max_steps,
+        sigma=0.0,
+        agent_start_pos=agent_start,
+        random_seed=random_seed,
+        training_positions=all_training_positions,
+        save_path=save_path,
+        save_name=experiment_name,
+        save_image=save_image,
+    )
+
+    return {
+        "episode_rewards": episode_rewards,
+        "episode_lengths": episode_lengths,
+        **{f"eval_{k}": v for k, v in eval_stats.items()},
+    }
 
 
 if __name__ == "__main__":

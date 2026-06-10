@@ -38,11 +38,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "world"))
 ### Agent train functions
 # To add a new agent: import its module and add an entry here
 import train_dqn
-# import train_ppo
+import train_ppo
 
 AGENT_TRAINERS = {
     "dqn": train_dqn.main,
-    # "ppo": train_ppo.main,
+    "ppo": train_ppo.main,
 }
 
 
@@ -100,7 +100,35 @@ def build_experiments() -> list[dict]:
                         "min_delta":            min_delta,
                     })
 
-            # Add more agent blocks here, e.g. for PPO:
+            elif agent == "ppo":
+                for (sigma, episodes, max_steps, lr, gamma,
+                     batch_size, rollout_size, gae_lambda,
+                     clip_epsilon, update_epochs,
+                ) in product(
+                    Config.SIGMAS,
+                    Config.EPISODES,
+                    Config.MAX_STEPS,
+                    Config.LEARNING_RATES,
+                    Config.GAMMAS,
+                    Config.BATCH_SIZES,
+                    Config.ROLLOUT_SIZES,
+                    Config.GAE_LAMBDAS,
+                    Config.CLIP_EPSILONS,
+                    Config.UPDATE_EPOCHS,
+                ):
+                    experiments.append({
+                        **shared,
+                        "sigma":         sigma,
+                        "episodes":      episodes,
+                        "max_steps":     max_steps,
+                        "learning_rate": lr,
+                        "gamma":         gamma,
+                        "batch_size":    batch_size,
+                        "rollout_size":  rollout_size,
+                        "gae_lambda":    gae_lambda,
+                        "clip_epsilon":  clip_epsilon,
+                        "update_epochs": update_epochs,
+                    })
 
     return experiments
 
@@ -149,8 +177,29 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             experiment_name      = f"exp_{exp_id:04d}",
         )
 
-    # TODO: Add PPO here: 
-    # Note can probably reuse some of the same params and results formatting
+    elif agent == "ppo":
+        results = train(
+            grid_paths           = [experiment["space_path"]],
+            no_gui               = True,
+            sigma                = experiment["sigma"],
+            fps                  = 30,
+            random_seed          = Config.RANDOM_SEED,
+            start_pos            = start_pos,
+            episodes             = experiment["episodes"],
+            max_steps            = experiment["max_steps"],
+            lr                   = experiment["learning_rate"],
+            gamma                = experiment["gamma"],
+            gae_lambda           = experiment["gae_lambda"],
+            clip_epsilon         = experiment["clip_epsilon"],
+            update_epochs        = experiment["update_epochs"],
+            batch_size           = experiment["batch_size"],
+            rollout_size         = experiment["rollout_size"],
+            eval_freq            = Config.EVAL_FREQ,
+            eval_episodes        = Config.EVAL_EPISODES,
+            save_path            = run_dir,
+            save_image           = Config.SAVE_IMAGES,
+            experiment_name      = f"exp_{exp_id:04d}",
+        )
 
     results = results or {}
     episode_rewards = results.pop("episode_rewards", [])

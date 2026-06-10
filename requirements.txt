@@ -1,5 +1,6 @@
 tqdm~=4.68.1
 numpy >= 1.24
+torch >= 2.0
 pygame >= 2.3
 flask >= 2.2
 flask-socketio >= 5.3
