@@ -68,18 +68,13 @@ def parse_args():
                    help="Evaluate every N episodes")
     p.add_argument("--eval_episodes", type=int, default=10,
                    help="Number of evaluation episodes")
-    p.add_argument("--patience", type=int, default=20,
-                   help="Stop if eval reward has not improved for this many evaluations")
-    p.add_argument("--min_delta", type=float, default=10.0,
-                   help="Minimum improvement in mean eval reward to count as progress")
-
     return p.parse_args()
 
 
 def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          episodes, max_steps, learning_rate, gamma, epsilon,
          min_epsilon, epsilon_anneal_steps, batch_size, replay_capacity, target_update_freq,
-         eval_freq, eval_episodes, patience, min_delta,
+         eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
          save_path=None, save_image=True, experiment_name=None):
     """Main training loop.
@@ -158,11 +153,6 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     # Track all positions visited during each episode for heatmap visualization
     all_training_positions = []
 
-    # Early stopping state: track the best mean eval reward and how many
-    # consecutive evaluations have passed without a meaningful improvement.
-    best_eval = -float("inf")
-    evals_without_improvement = 0
-
     for episode in trange(episodes, desc="Training"):
         env.reset()
         all_training_positions.append(env.agent_pos)
@@ -212,16 +202,6 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
                 f"Epsilon: {agent.epsilon:.4f}"
             )
 
-            # Check for improvement: reset counter if reward improved by at least
-            # min_delta, otherwise increment. Stop when patience is exhausted.
-            if mean_eval > best_eval + min_delta:
-                best_eval = mean_eval
-                evals_without_improvement = 0
-            else:
-                evals_without_improvement += 1
-                if evals_without_improvement >= patience:
-                    print(f"\nEarly stop: no improvement for {patience} evaluations.")
-                    break
 
     print("\nTraining completed.")
     print(f"Final epsilon    : {agent.epsilon:.4f}")
@@ -273,7 +253,5 @@ if __name__ == "__main__":
         args.target_update_freq,
         args.eval_freq,
         args.eval_episodes,
-        args.patience,
-        args.min_delta,
         obs_mode=args.obs_mode,
     )

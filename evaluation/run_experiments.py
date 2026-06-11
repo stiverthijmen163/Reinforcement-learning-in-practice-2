@@ -66,8 +66,7 @@ def build_experiments() -> list[dict]:
             if agent == "dqn":
                 for (sigma, episodes, max_steps, lr, gamma,
                      batch_size, replay_cap, target_upd_freq,
-                     epsilon, min_epsilon, anneal_steps,
-                     patience, min_delta, obs_mode,
+                     epsilon, min_epsilon, anneal_steps, obs_mode,
                 ) in product(
                     Config.SIGMAS,
                     Config.EPISODES,
@@ -80,8 +79,6 @@ def build_experiments() -> list[dict]:
                     Config.EPSILONS,
                     Config.MIN_EPSILONS,
                     Config.EPSILON_ANNEAL_STEPS,
-                    Config.PATIENCE,
-                    Config.MIN_DELTA,
                     Config.OBS_MODES,
                 ):
                     experiments.append({
@@ -97,8 +94,6 @@ def build_experiments() -> list[dict]:
                         "epsilon":              epsilon,
                         "min_epsilon":          min_epsilon,
                         "epsilon_anneal_steps": anneal_steps,
-                        "patience":             patience,
-                        "min_delta":            min_delta,
                         "obs_mode":             obs_mode,
                     })
 
@@ -174,8 +169,6 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             target_update_freq   = experiment["target_update_freq"],
             eval_freq            = Config.EVAL_FREQ,
             eval_episodes        = Config.EVAL_EPISODES,
-            patience             = experiment["patience"],
-            min_delta            = experiment["min_delta"],
             obs_mode             = experiment["obs_mode"],
             save_path            = run_dir,
             save_image           = Config.SAVE_IMAGES,

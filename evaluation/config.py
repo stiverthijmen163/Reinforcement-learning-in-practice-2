@@ -42,8 +42,6 @@ class Config:
     EPSILONS             = [1.0]
     MIN_EPSILONS         = [0.01]
     EPSILON_ANNEAL_STEPS = [None]   # None: default: episodes × max_steps // 2
-    PATIENCE             = [20]
-    MIN_DELTA            = [10.0]
 
     # PPO-specific hyperparameters
     ROLLOUT_SIZES  = [512]
