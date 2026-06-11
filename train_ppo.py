@@ -61,6 +61,10 @@ def parse_args():
                    help="Reuse the same rollout data N times")
     p.add_argument("--batch_size", type=int, default=64,
                    help="Mini batch size used for updates")
+    p.add_argument("--eval_freq", type=int, default=50,
+                   help="Evaluate every N episodes")
+    p.add_argument("--eval_episodes", type=int, default=10,
+                   help="Number of evaluation episodes")
 
     return p.parse_args()
 
@@ -298,4 +302,24 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
 
 if __name__ == "__main__":
     args = parse_args()
-    train(args)
+    main(
+        grid_paths=[args.GRID],
+        no_gui=args.no_gui,
+        sigma=args.sigma,
+        fps=args.fps,
+        random_seed=args.random_seed,
+        start_pos=args.start_pos,
+        episodes=args.episodes,
+        max_steps=args.max_steps,
+        lr=args.lr,
+        gamma=args.gamma,
+        gae_lambda=args.gae_lambda,
+        clip_epsilon=args.clip_epsilon,
+        update_epochs=args.update_epochs,
+        batch_size=args.batch_size,
+        rollout_size=args.rollout_size,
+        eval_freq=args.eval_freq,
+        eval_episodes=args.eval_episodes,
+        obs_mode=args.obs_mode,
+        sensor_range=args.sensor_range,
+    )
