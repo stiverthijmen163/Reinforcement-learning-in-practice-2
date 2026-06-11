@@ -20,13 +20,12 @@ def parse_args():
 
     p.add_argument("GRID", type=Path,
                    help="Paths to the grid file to use.")
-    p.add_argument("--no_gui", action="store_true",
-                   help="Disables rendering to train faster")
+    p.add_argument("--gui", action="store_true",
+                   help="Open debug viewer during training")
     p.add_argument("--sigma", type=float, default=0.1,
                    help="Sigma value for the stochasticity of the environment.")
     p.add_argument("--fps", type=int, default=30,
-                   help="Frames per second to render at. Only used if "
-                        "no_gui is not set.")
+                   help="Frames per second to render at. Only used if --gui is set.")
     p.add_argument("--random_seed", type=int, default=0,
                    help="Random seed value for the environment.")
     p.add_argument("--start_pos", type=str, default=None,
@@ -90,7 +89,7 @@ def train(args):
 
     env = Environment(
         args.GRID,
-        no_gui=args.no_gui,
+        no_gui=not args.gui,
         sigma=args.sigma,
         target_fps=args.fps,
         agent_start_pos=start_pos,

@@ -14,6 +14,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent / "world"))
 
 from agents.dqn_agent import DQNAgent
+from world.debug_viewer import DebugViewer
 from world.environment import Environment
 from world.state import ObservationBuilder
 
@@ -27,8 +28,8 @@ def parse_args():
     # Environment arguments
     p.add_argument("GRID", type=Path, nargs="+",
                    help="Paths to space configuration files")
-    p.add_argument("--no_gui", action="store_true",
-                   help="Disable rendering for faster training")
+    p.add_argument("--gui", action="store_true",
+                   help="Open debug viewer during training")
     p.add_argument("--sigma", type=float, default=0.1,
                    help="Environmental stochasticity (0-1)")
     p.add_argument("--fps", type=int, default=30,
@@ -107,6 +108,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         random_seed=random_seed,
     )
 
+    env = DebugViewer(env)
     obs_builder = ObservationBuilder(env, obs_mode, sensor_range)
 
     # Annealing epsilon over the first half of the training budget so exploration dominates
@@ -166,6 +168,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
             all_training_positions.append(env.agent_pos)
 
             agent.update(state, action, reward / reward_scale, next_state, done)
+            env.update_metrics(epsilon=agent.epsilon, loss=agent.last_loss)
             state = next_state
             total_reward += reward
 
@@ -236,7 +239,7 @@ if __name__ == "__main__":
     args = parse_args()
     main(
         args.GRID,
-        args.no_gui,
+        not args.gui,
         args.sigma,
         args.fps,
         args.random_seed,

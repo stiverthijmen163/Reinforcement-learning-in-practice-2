@@ -18,23 +18,24 @@ class Config:
     SPACES = {
         "spaces/easy_space.pickle": {"start_pos": None},
         # "spaces/test_space.pickle": {"start_pos": None},
+        #"spaces/restaurant_1_space.pickle": {"start_pos": None}, # 50*50 map
     }
-
-    AGENTS = ["dqn", "ppo"]
+    # "dqn" and, or "ppo"
+    AGENTS = ["dqn"]
 
     # Shared parameters
     SIGMAS      = [0.1]   # Stochasticity
     RANDOM_SEED = 0             # Fixed seed for reproducibility across all runs
 
     # Shared training parameters (used by both DQN and PPO)
-    EPISODES      = [10]  # TODO: set higher for real experiments
+    EPISODES      = [200]  # TODO: set higher for real experiments
     MAX_STEPS     = [200]
     LEARNING_RATES = [0.001]
     GAMMAS        = [0.99]
     BATCH_SIZES   = [32]
 
     # Observation mode ("xy", "sensors", or "both")
-    OBS_MODES = ["xy", "sensors", "both"]
+    OBS_MODES = ["both"]
 
     # DQN-specific hyperparameters
     REPLAY_CAPACITIES    = [10000]
@@ -54,7 +55,7 @@ class Config:
     EVAL_EPISODES = 10    # Number of greedy episodes per eval checkpoint
 
     # Set SAVE_IMAGES = False to skip path/heatmap images
-    SAVE_IMAGES = False
+    SAVE_IMAGES = True
 
     # Set VERBOSE = False to suppress all output from training scripts
     # and only show the progress bar from run_experiments.py itself
