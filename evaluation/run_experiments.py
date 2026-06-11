@@ -67,7 +67,7 @@ def build_experiments() -> list[dict]:
                 for (sigma, episodes, max_steps, lr, gamma,
                      batch_size, replay_cap, target_upd_freq,
                      epsilon, min_epsilon, anneal_steps,
-                     patience, min_delta,
+                     patience, min_delta, obs_mode,
                 ) in product(
                     Config.SIGMAS,
                     Config.EPISODES,
@@ -82,6 +82,7 @@ def build_experiments() -> list[dict]:
                     Config.EPSILON_ANNEAL_STEPS,
                     Config.PATIENCE,
                     Config.MIN_DELTA,
+                    Config.OBS_MODES,
                 ):
                     experiments.append({
                         **shared,
@@ -98,12 +99,13 @@ def build_experiments() -> list[dict]:
                         "epsilon_anneal_steps": anneal_steps,
                         "patience":             patience,
                         "min_delta":            min_delta,
+                        "obs_mode":             obs_mode,
                     })
 
             elif agent == "ppo":
                 for (sigma, episodes, max_steps, lr, gamma,
                      batch_size, rollout_size, gae_lambda,
-                     clip_epsilon, update_epochs,
+                     clip_epsilon, update_epochs, obs_mode,
                 ) in product(
                     Config.SIGMAS,
                     Config.EPISODES,
@@ -115,6 +117,7 @@ def build_experiments() -> list[dict]:
                     Config.GAE_LAMBDAS,
                     Config.CLIP_EPSILONS,
                     Config.UPDATE_EPOCHS,
+                    Config.OBS_MODES,
                 ):
                     experiments.append({
                         **shared,
@@ -128,6 +131,7 @@ def build_experiments() -> list[dict]:
                         "gae_lambda":    gae_lambda,
                         "clip_epsilon":  clip_epsilon,
                         "update_epochs": update_epochs,
+                        "obs_mode":      obs_mode,
                     })
 
     return experiments
@@ -172,6 +176,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             eval_episodes        = Config.EVAL_EPISODES,
             patience             = experiment["patience"],
             min_delta            = experiment["min_delta"],
+            obs_mode             = experiment["obs_mode"],
             save_path            = run_dir,
             save_image           = Config.SAVE_IMAGES,
             experiment_name      = f"exp_{exp_id:04d}",
@@ -196,6 +201,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             rollout_size         = experiment["rollout_size"],
             eval_freq            = Config.EVAL_FREQ,
             eval_episodes        = Config.EVAL_EPISODES,
+            obs_mode             = experiment["obs_mode"],
             save_path            = run_dir,
             save_image           = Config.SAVE_IMAGES,
             experiment_name      = f"exp_{exp_id:04d}",
@@ -236,8 +242,8 @@ def _worker(args: tuple) -> tuple[dict, list[dict]]:
     os.environ["TQDM_DISABLE"] = "1"
     if not Config.VERBOSE:
         # Silence stdout/stderr for the entire subprocess so training prints stay silent
-        sys.stdout = open(os.devnull, "w")
-        sys.stderr = open(os.devnull, "w")
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
     i, experiment, run_dir = args
     return run_experiment(experiment, run_dir, i)
 
@@ -267,8 +273,8 @@ def main(sequential: bool = False) -> None:
             # Silence training output if VERBOSE=False, but still show progress bar and experiment info:
             # Added this as it was impossible to see how far the training script was with all the outputs
             # So this feels cleaner
-            with contextlib.redirect_stdout(open(os.devnull, "w") if not Config.VERBOSE else sys.stdout), \
-                 contextlib.redirect_stderr(open(os.devnull, "w") if not Config.VERBOSE else sys.stderr):
+            with contextlib.redirect_stdout(open(os.devnull, "w", encoding="utf-8") if not Config.VERBOSE else sys.stdout), \
+                 contextlib.redirect_stderr(open(os.devnull, "w", encoding="utf-8") if not Config.VERBOSE else sys.stderr):
                 summary, curves = run_experiment(exp, run_dir, i)
             all_summaries.append(summary)
             all_curves.extend(curves)

@@ -23,15 +23,18 @@ class Config:
     AGENTS = ["dqn", "ppo"]
 
     # Shared parameters
-    SIGMAS      = [0.0, 0.1]   # Stochasticity
+    SIGMAS      = [0.1]   # Stochasticity
     RANDOM_SEED = 0             # Fixed seed for reproducibility across all runs
 
     # Shared training parameters (used by both DQN and PPO)
-    EPISODES      = [10, 20]  # TODO: set higher for real experiments
+    EPISODES      = [10]  # TODO: set higher for real experiments
     MAX_STEPS     = [200]
     LEARNING_RATES = [0.001]
     GAMMAS        = [0.99]
     BATCH_SIZES   = [32]
+
+    # Observation mode ("xy", "sensors", or "both")
+    OBS_MODES = ["xy", "sensors", "both"]
 
     # DQN-specific hyperparameters
     REPLAY_CAPACITIES    = [10000]

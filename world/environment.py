@@ -8,7 +8,7 @@ from world.helpers import *
 from agents.base_agent import BaseAgent
 from world.path_visualizer import visualize_path, visualize_heatmap
 from world.space import Space
-from world.state import get_state
+from world.state import ObservationBuilder
 
 
 class Environment:
@@ -311,7 +311,8 @@ class Environment:
                        random_seed: int | float | str | bytes | bytearray = 0, reward_fn: callable = None,
                        save_path: Path = None, save_name: str = None,
                        save_image: bool = True, agent_radius: float = 0.1,
-                       training_positions: list[tuple[float, float]] = None) -> dict:
+                       training_positions: list[tuple[float, float]] = None,
+                       obs_mode: str = "both", sensor_range: float = 10.0) -> dict:
         """
         Evaluates an agent on a specified space layout, saves the results accordingly.
 
@@ -327,8 +328,10 @@ class Environment:
         :param save_image: whether to save the figure containing the path taken by the agent
         :param agent_radius: radius of the agent
         :param training_positions: all (x, y) positions visited during training.
-                                   Used to create a heatmap of the agent's positions 
+                                   Used to create a heatmap of the agent's positions
                                    during trianing
+        :param obs_mode: observation mode ('xy', 'sensors', or 'both'); must match training
+        :param sensor_range: maximum sensor distance, must match training
 
         :return: dictionary containing information about the entire run
         """
@@ -342,7 +345,8 @@ class Environment:
                           agent_radius=agent_radius)
 
         env.reset()
-        state = get_state(env)
+        obs_builder = ObservationBuilder(env, obs_mode, sensor_range)
+        state = obs_builder.build(env.agent_pos)
 
         # Add initial agent position to the path
         agent_path = [env.agent_pos]
@@ -353,7 +357,7 @@ class Environment:
         for _ in trange(max_steps, desc="Evaluating agent"):
             action = agent.take_action(state)
             _, _, terminated, info = env.step(action)
-            state = get_state(env)
+            state = obs_builder.build(env.agent_pos)
 
             agent_path.append(env.agent_pos)
             collision_path.append(info["collided"])

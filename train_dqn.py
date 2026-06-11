@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent / "world"))
 
 from agents.dqn_agent import DQNAgent
 from world.environment import Environment
-from world.state import get_state
+from world.state import ObservationBuilder
 
 # 24 actions: 8 directions × 3 step sizes (0.2, 0.5, 1.0), as defined in world/helpers.py ACTIONS.
 N_ACTIONS = 24
@@ -62,6 +62,8 @@ def parse_args():
                    help="Steps between target network updates")
 
     # Evaluation arguments
+    p.add_argument("--obs_mode", choices=["xy", "sensors", "both"], default="both",
+                   help="Observation mode: coordinates, sensors, or both")
     p.add_argument("--eval_freq", type=int, default=50,
                    help="Evaluate every N episodes")
     p.add_argument("--eval_episodes", type=int, default=10,
@@ -78,6 +80,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          episodes, max_steps, learning_rate, gamma, epsilon,
          min_epsilon, epsilon_anneal_steps, batch_size, replay_capacity, target_update_freq,
          eval_freq, eval_episodes, patience, min_delta,
+         obs_mode="both", sensor_range=10.0,
          save_path=None, save_image=True, experiment_name=None):
     """Main training loop.
 
@@ -109,6 +112,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         random_seed=random_seed,
     )
 
+    obs_builder = ObservationBuilder(env, obs_mode, sensor_range)
+
     # Annealing epsilon over the first half of the training budget so exploration dominates
     # early and exploitation dominates late. Can still be set manually via --epsilon_anneal_steps.
     if epsilon_anneal_steps is None:
@@ -130,11 +135,12 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         replay_capacity=replay_capacity,
         batch_size=batch_size,
         target_update_freq=target_update_freq,
-        input_size=10,  # Continuous state: [x, y, d1-d8]
+        input_size=obs_builder.get_state_dim(),
         hidden_size=128
     )
 
     print("DQN Agent Configuration:")
+    print(f"  Obs mode         : {obs_mode} ({obs_builder.get_state_dim()}-D state)")
     print(f"  Actions          : {N_ACTIONS} (8 directions × 3 step sizes)")
     print(f"  Learning rate    : {learning_rate}")
     print(f"  Gamma            : {gamma}")
@@ -160,13 +166,13 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     for episode in trange(episodes, desc="Training"):
         env.reset()
         all_training_positions.append(env.agent_pos)
-        state = get_state(env)
+        state = obs_builder.build(env.agent_pos)
         total_reward = 0.0
 
         for step in range(max_steps):
             action = agent.take_action(state)
             _, reward, done, _ = env.step(action)
-            next_state = get_state(env)
+            next_state = obs_builder.build(env.agent_pos)
             all_training_positions.append(env.agent_pos)
 
             agent.update(state, action, reward / reward_scale, next_state, done)
@@ -186,12 +192,12 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
 
             for _ in range(eval_episodes):
                 env.reset()
-                s = get_state(env)
+                s = obs_builder.build(env.agent_pos)
                 ep_r = 0.0
                 for _ in range(max_steps):
                     a = agent.greedy_action(s)
                     _, r, d, _ = env.step(a)
-                    s = get_state(env)
+                    s = obs_builder.build(env.agent_pos)
                     ep_r += r
                     if d:
                         break
@@ -233,6 +239,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         save_path=save_path,
         save_name=experiment_name,
         save_image=save_image,
+        obs_mode=obs_mode,
+        sensor_range=sensor_range,
     )
 
     return {
@@ -267,4 +275,5 @@ if __name__ == "__main__":
         args.eval_episodes,
         args.patience,
         args.min_delta,
+        obs_mode=args.obs_mode,
     )

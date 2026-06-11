@@ -12,156 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent / "world"))
 from agents.ppo_agent import PPOAgent
 from world.environment import Environment
 from world.helpers import ACTIONS
-from world.state import get_state
-
-
-SENSOR_DIRECTIONS = np.array(
-    [
-        (0, 1),
-        (1, 1),
-        (1, 0),
-        (1, -1),
-        (0, -1),
-        (-1, -1),
-        (-1, 0),
-        (-1, 1),
-    ],
-    dtype=np.float32,
-)
-
-SENSOR_DIRECTIONS = SENSOR_DIRECTIONS / np.linalg.norm(
-    SENSOR_DIRECTIONS,
-    axis=1,
-    keepdims=True,
-)
-
-
-class ObservationBuilder:
-    def __init__(self, env, obs_mode="both", sensor_range=10.0):
-        self.env = env
-        self.obs_mode = obs_mode
-        self.sensor_range = sensor_range
-
-        if obs_mode not in ["xy", "sensors", "both"]:
-            raise ValueError("obs_mode must be 'xy', 'sensors', or 'both'")
-
-    def get_state_dim(self):
-        if self.obs_mode == "xy":
-            return 2
-
-        if self.obs_mode == "sensors":
-            return 8
-
-        return 10
-
-    def build(self, state):
-        x, y = state
-
-        if self.obs_mode == "xy":
-            return np.array([x, y], dtype=np.float32)
-
-        sensors = self.get_sensor_readings(x, y)
-
-        if self.obs_mode == "sensors":
-            return sensors
-
-        return np.concatenate(
-            [
-                np.array([x, y], dtype=np.float32),
-                sensors,
-            ]
-        )
-
-    def get_sensor_readings(self, x, y):
-        readings = []
-
-        for direction in SENSOR_DIRECTIONS:
-            distance = self.sensor_range
-
-            distance = min(
-                distance,
-                self.distance_to_wall(x, y, direction),
-            )
-
-            for obstacle in self.env.obstacles:
-                distance = min(
-                    distance,
-                    self.distance_to_obstacle(x, y, direction, obstacle),
-                )
-
-            readings.append(distance)
-
-        return np.array(readings, dtype=np.float32)
-
-    def distance_to_wall(self, x, y, direction):
-        dx, dy = direction
-        eps = 1e-8
-
-        left = self.env.agent_radius
-        right = self.env.x_max - self.env.agent_radius
-        bottom = self.env.agent_radius
-        top = self.env.y_max - self.env.agent_radius
-
-        distances = []
-
-        if dx > eps:
-            distances.append((right - x) / dx)
-
-        if dx < -eps:
-            distances.append((left - x) / dx)
-
-        if dy > eps:
-            distances.append((top - y) / dy)
-
-        if dy < -eps:
-            distances.append((bottom - y) / dy)
-
-        distances = [d for d in distances if d >= 0]
-
-        if len(distances) == 0:
-            return self.sensor_range
-
-        return min(min(distances), self.sensor_range)
-
-    def distance_to_obstacle(self, x, y, direction, obstacle):
-        ox, oy, width, height = obstacle
-        dx, dy = direction
-
-        radius = self.env.agent_radius
-        eps = 1e-8
-
-        left = ox - radius
-        right = ox + width + radius
-        bottom = oy - radius
-        top = oy + height + radius
-
-        t_min = -float("inf")
-        t_max = float("inf")
-
-        for position, delta, low, high in [
-            (x, dx, left, right),
-            (y, dy, bottom, top),
-        ]:
-            if abs(delta) < eps:
-                if position < low or position > high:
-                    return self.sensor_range
-            else:
-                t1 = (low - position) / delta
-                t2 = (high - position) / delta
-
-                enter = min(t1, t2)
-                exit = max(t1, t2)
-
-                t_min = max(t_min, enter)
-                t_max = min(t_max, exit)
-
-                if t_min > t_max:
-                    return self.sensor_range
-
-        if t_max < 0:
-            return self.sensor_range
-
-        return min(max(t_min, 0), self.sensor_range)
+from world.state import ObservationBuilder
 
 
 def parse_args():
@@ -336,6 +187,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          episodes, max_steps, lr, gamma, gae_lambda, clip_epsilon,
          update_epochs, batch_size, rollout_size,
          eval_freq, eval_episodes,
+         obs_mode="both", sensor_range=10.0,
          save_path=None, save_image=True, experiment_name=None):
     """PPO training loop compatible with run_experiments.py.
 
@@ -362,7 +214,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         random_seed=random_seed,
     )
 
-    state_dim = 10  # [x/W, y/H, d1..d8] matches evaluate_agent
+    obs_builder = ObservationBuilder(env, obs_mode, sensor_range)
+    state_dim = obs_builder.get_state_dim()
     action_dim = len(ACTIONS)
 
     agent = PPOAgent(
@@ -382,7 +235,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
 
     for episode in trange(episodes, desc="PPO Training"):
         env.reset(agent_start_pos=agent_start)
-        obs = get_state(env)
+        obs = obs_builder.build(env.agent_pos)
         all_training_positions.append(env.agent_pos)
 
         episode_reward = 0.0
@@ -391,7 +244,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         for step in range(max_steps):
             action, log_prob, value = agent.choose_action(obs)
             _, reward, terminated, _ = env.step(action)
-            next_obs = get_state(env)
+            next_obs = obs_builder.build(env.agent_pos)
             all_training_positions.append(env.agent_pos)
             done = terminated
 
@@ -432,6 +285,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         save_path=save_path,
         save_name=experiment_name,
         save_image=save_image,
+        obs_mode=obs_mode,
+        sensor_range=sensor_range,
     )
 
     return {
