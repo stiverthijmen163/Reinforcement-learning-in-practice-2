@@ -168,7 +168,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
             all_training_positions.append(env.agent_pos)
 
             agent.update(state, action, reward / reward_scale, next_state, done)
-            env.update_metrics(epsilon=agent.epsilon, loss=agent.last_loss)
+            max_q = float(np.max(agent.q_network.forward(state)))
+            env.update_metrics(epsilon=agent.epsilon, loss=agent.last_loss, max_q=max_q)
             state = next_state
             total_reward += reward
 

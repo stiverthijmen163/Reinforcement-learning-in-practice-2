@@ -1,20 +1,27 @@
 """
 Live debug viewer for the RL environment.
 
-Active when no_gui=False. Creates a pygame window and renders the environment
+Active when gui=True. Creates a pygame window and renders the environment
 at each training step. Use it as a drop-in wrapper around Environment:
 
-    env = DebugViewer(env)   # wraps env; no-op when no_gui=True
+    env = DebugViewer(env)   # wraps env; no-op when gui=False
 
 Controls:
-  Space      — pause / resume
-  T          — toggle "pause on target reached"
-  C          — toggle "pause on collision"
-  ← →        — scrub through step history while paused
-  Click HUD  — same as T / C toggles
+  Space         — pause / resume
+  T             — toggle "pause on target reached"
+  C             — toggle "pause on collision"
+  ← →           — scrub through step history while paused
+                  (→ when not scrubbing: advance exactly one live step)
+  Drag slider   — change simulation speed (1–60 fps)
+  Click HUD     — same as T / C toggles
 """
 import collections
+import math
+import numpy as np
 import pygame
+
+from world.helpers import ACTIONS
+from world.state import SENSOR_DIRECTIONS, ObservationBuilder
 
 _ENV_SIZE = 650   # square pixels for the environment viewport
 _HUD_W    = 220   # right-side panel width
@@ -56,6 +63,15 @@ class DebugViewer:
         self.pause_on_target    = False
         self.pause_on_collision = False
 
+        self._last_action    = None   # action index from last step
+        self._flash_frames   = 0      # frames left for collision flash
+        self.max_q           = None   # pushed from training loop
+        self._targets_reached= 0      # cumulative target reaches across all episodes
+
+        self._speed         = 15     # rendering FPS (slider-controlled)
+        self._dragging_speed= False
+        self._slider_rect   = None
+
         self._btn_target    = None
         self._btn_collision = None
 
@@ -83,12 +99,17 @@ class DebugViewer:
         return result
 
     def step(self, action):
+        self._last_action = action
         result = self.env.step(action)
         _, reward, done, info = result
 
         self._cum_r += reward
         self._step  += 1
         self._path.append(self.env.agent_pos)
+        if info.get('collided'):
+            self._flash_frames = 8
+        if info.get('target_reached'):
+            self._targets_reached += 1
 
         self._history.append({
             'pos':     self.env.agent_pos,
@@ -98,6 +119,8 @@ class DebugViewer:
             'reward':  reward,
             'done':    done,
             'info':    info,
+            'drifted': 'random move' in info.get('actual_action', ''),
+            'action':  action,
         })
 
         if self.active:
@@ -110,10 +133,11 @@ class DebugViewer:
 
         return result
 
-    def update_metrics(self, epsilon=None, loss=None):
+    def update_metrics(self, epsilon=None, loss=None, max_q=None):
         """Call after each training step to update the HUD values."""
         if epsilon is not None: self.epsilon = epsilon
         if loss    is not None: self.loss    = loss
+        if max_q   is not None: self.max_q   = max_q
 
     def __getattr__(self, name):
         return getattr(self.env, name)
@@ -149,11 +173,36 @@ class DebugViewer:
         if len(path) >= 2:
             pygame.draw.lines(surf, _PATH, False, [self._to_screen(*p) for p in path], 2)
 
-        # agent
+        # drift markers — orange × at positions where stochastic kick occurred
+        scrub_entry = self._history[self._scrub] if (scrub and self._scrub is not None) else None
+        cur_ep  = scrub_entry['episode'] if scrub_entry else self._episode
+        cur_stp = scrub_entry['step']    if scrub_entry else self._step
+        for entry in self._history:
+            if entry['episode'] == cur_ep and entry['step'] <= cur_stp and entry.get('drifted'):
+                mx, my = self._to_screen(*entry['pos'])
+                pygame.draw.line(surf, (255, 130, 0), (mx - 5, my - 5), (mx + 5, my + 5), 2)
+                pygame.draw.line(surf, (255, 130, 0), (mx - 5, my + 5), (mx + 5, my - 5), 2)
+
+        # sensor rays — shown in both live and scrub mode
         apos = self._history[self._scrub]['pos'] if (scrub and self._scrub is not None) else env.agent_pos
         if apos:
-            ar   = max(3, int(env.agent_radius / env.x_max * _ENV_SIZE))
-            col  = _SCRUB_DOT if (scrub and self._scrub is not None) else _AGENT
+            self._draw_sensor_rays(surf, apos)
+
+        # action arrow — use historical action when scrubbing
+        action_to_draw = scrub_entry.get('action') if scrub_entry else self._last_action
+        if apos and action_to_draw is not None:
+            self._draw_action_arrow(surf, apos, action_to_draw)
+
+        # agent — flash red on collision, orange when scrubbing
+        if apos:
+            ar = max(3, int(env.agent_radius / env.x_max * _ENV_SIZE))
+            if scrub and self._scrub is not None:
+                col = _SCRUB_DOT
+            elif self._flash_frames > 0:
+                col = (220, 50, 50)
+                self._flash_frames -= 1
+            else:
+                col = _AGENT
             pygame.draw.circle(surf, col, self._to_screen(*apos), ar)
 
         # border
@@ -161,7 +210,7 @@ class DebugViewer:
 
         self._draw_hud(scrub)
         pygame.display.flip()
-        self._clock.tick(60)
+        self._clock.tick(self._speed)
 
     def _draw_hud(self, scrub=False):
         panel = pygame.Surface((_HUD_W, _ENV_SIZE))
@@ -186,13 +235,25 @@ class DebugViewer:
             line(f"Step  {h['step']}")
             line(f"Rew   {h['reward']:+.2f}")
             line(f"CumR  {h['cum_r']:.1f}")
+            if h['pos']:
+                line(f"Pos   ({h['pos'][0]:.2f},{h['pos'][1]:.2f})")
         else:
             line("  PAUSED  " if self._paused else "  RUNNING ", _PAUSE_CLR if self._paused else _RUN_CLR)
             line(f"Ep    {self._episode}")
             line(f"Step  {self._step}")
             line(f"CumR  {self._cum_r:.1f}")
+            pos = self.env.agent_pos
+            if pos:
+                line(f"Pos   ({pos[0]:.2f},{pos[1]:.2f})")
             if self.epsilon is not None: line(f"Eps   {self.epsilon:.4f}")
             if self.loss    is not None: line(f"Loss  {self.loss:.6f}")
+            if self.max_q   is not None: line(f"MaxQ  {self.max_q:.2f}")
+            rate = 100.0 * self._targets_reached / max(1, self._episode)
+            line(f"Goals {self._targets_reached} ({rate:.0f}%)",
+                 (80, 220, 100) if rate >= 50 else _TEXT)
+            drift_n = sum(1 for e in self._history
+                          if e['episode'] == self._episode and e.get('drifted'))
+            if drift_n: line(f"Drift {drift_n}", (255, 150, 50))
 
         sep()
         line("Auto-pause", _DIM, self._font_s)
@@ -211,7 +272,59 @@ class DebugViewer:
         line("Space  pause/resume", _DIM, self._font_s)
         line("← →    scrub history", _DIM, self._font_s)
 
+        sep()
+        # Speed slider row: "Speed" label | track+handle | "N fps"
+        slider_y = y + 2
+        panel.blit(self._font_s.render("Speed", True, _DIM), (8, slider_y))
+        track_x = 52
+        track_w = _HUD_W - track_x - 38
+        pygame.draw.rect(panel, (60, 60, 60), (track_x, slider_y + 2, track_w, 6), border_radius=3)
+        ratio = (self._speed - 1) / 59.0
+        hx = track_x + int(ratio * track_w)
+        pygame.draw.circle(panel, (180, 180, 255), (hx, slider_y + 5), 6)
+        panel.blit(self._font_s.render(f"{self._speed:2d}fps", True, _TEXT),
+                   (track_x + track_w + 4, slider_y))
+        # Store hit rect in screen coords for mouse events
+        self._slider_rect = pygame.Rect(_ENV_SIZE + track_x, slider_y + 2, track_w, 14)
+
         self._screen.blit(panel, (_ENV_SIZE, 0))
+
+    def _draw_sensor_rays(self, surf, apos):
+        """Draw 8 LiDAR rays from agent position, green=far → red=close."""
+        env = self.env
+        obs = ObservationBuilder(env, "sensors", sensor_range=10.0)
+        readings = obs.get_sensor_readings(*apos)
+        ax, ay = self._to_screen(*apos)
+        for (dx, dy), dist in zip(SENSOR_DIRECTIONS, readings):
+            ratio = dist / 10.0  # 0=close, 1=far
+            r = int(220 * (1 - ratio) + 50 * ratio)
+            g = int(50  * (1 - ratio) + 200 * ratio)
+            color = (r, g, 60)
+            ex = apos[0] + dx * dist
+            ey = apos[1] + dy * dist
+            pygame.draw.line(surf, color, (ax, ay), self._to_screen(ex, ey), 1)
+
+    def _draw_action_arrow(self, surf, apos, action_id):
+        """Draw a direction arrow showing the last chosen action."""
+        direction, step_size = ACTIONS[action_id]
+        dx, dy = direction
+        length = math.sqrt(dx*dx + dy*dy)
+        if length == 0:
+            return
+        ux, uy = dx / length, dy / length
+        # Scale for visibility: use step_size but minimum 0.8 world units
+        vis_len = max(step_size, 0.8)
+        ex = apos[0] + ux * vis_len
+        ey = apos[1] + uy * vis_len
+        start = self._to_screen(*apos)
+        end   = self._to_screen(ex, ey)
+        pygame.draw.line(surf, (255, 220, 0), start, end, 2)
+        # Arrowhead
+        angle = math.atan2(-(end[1] - start[1]), end[0] - start[0])
+        for side in (math.pi * 5/6, -math.pi * 5/6):
+            hx = end[0] + 8 * math.cos(angle + side)
+            hy = end[1] - 8 * math.sin(angle + side)
+            pygame.draw.line(surf, (255, 220, 0), end, (int(hx), int(hy)), 2)
 
     def _scrub_path(self):
         if self._scrub is None or not self._history:
@@ -234,6 +347,10 @@ class DebugViewer:
                 if event.key == pygame.K_c:     self.pause_on_collision = not self.pause_on_collision
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self._handle_click(event.pos)
+            if event.type == pygame.MOUSEMOTION and self._dragging_speed:
+                self._update_speed_from_mouse(event.pos[0])
+            if event.type == pygame.MOUSEBUTTONUP:
+                self._dragging_speed = False
 
     def _wait_for_input(self):
         while self._paused or self._scrub is not None:
@@ -252,10 +369,9 @@ class DebugViewer:
                         if self._scrub is not None and self._scrub < len(self._history) - 1:
                             self._scrub += 1
                         else:
-                            # step forward one live step — return control to training loop
-                            self._paused = False
-                            self._scrub  = None
-                            self._render()
+                            # Exit scrub and do exactly one live step, then re-pause.
+                            # _paused stays True so step() calls _wait_for_input() again.
+                            self._scrub = None
                             return
 
                     if event.key == pygame.K_LEFT:
@@ -269,6 +385,10 @@ class DebugViewer:
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     self._handle_click(event.pos)
+                if event.type == pygame.MOUSEMOTION and self._dragging_speed:
+                    self._update_speed_from_mouse(event.pos[0])
+                if event.type == pygame.MOUSEBUTTONUP:
+                    self._dragging_speed = False
 
             self._render(scrub=(self._scrub is not None))
             self._clock.tick(30)
@@ -279,3 +399,12 @@ class DebugViewer:
             self.pause_on_target    = not self.pause_on_target
         if self._btn_collision and self._btn_collision.collidepoint(px, py):
             self.pause_on_collision = not self.pause_on_collision
+        if self._slider_rect and self._slider_rect.collidepoint(*mouse_pos):
+            self._dragging_speed = True
+            self._update_speed_from_mouse(mouse_pos[0])
+
+    def _update_speed_from_mouse(self, screen_x):
+        if self._slider_rect is None:
+            return
+        ratio = max(0.0, min(1.0, (screen_x - self._slider_rect.x) / self._slider_rect.width))
+        self._speed = max(1, int(round(1 + ratio * 59)))
