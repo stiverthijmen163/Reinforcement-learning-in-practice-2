@@ -17,6 +17,7 @@ import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 
@@ -85,8 +86,9 @@ def smooth(values: list[float], window: int) -> np.ndarray:
     return result
 
 
-def save_fig(fig: plt.Figure, path: Path) -> None:
-    fig.tight_layout()
+def save_fig(fig: plt.Figure, path: Path, tight: bool = True) -> None:
+    if tight:
+        fig.tight_layout()
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved {path.name}")
@@ -258,6 +260,94 @@ def save_best_configs(df: pd.DataFrame, out_dir: Path) -> None:
     print(f"  Saved {path.name}  ({len(rows)} rows)")
 
 
+def visualize_plot_matrix(results_df: pd.DataFrame, varying: list[tuple[str, str]],
+                             out_dir: Path) -> None:
+    # Get the best hyperparameter settings for each agent
+    best_df = results_df.copy().loc[results_df.copy().groupby("agent")["eval_cumulative_reward"].idxmax()]
+    agents = best_df["agent"].copy().unique().tolist()
+    colors = ["blue", "orange"]
+    markers = ["o", "^"]
+    spaces = results_df["space"].copy().unique().tolist()
+
+    fig, axes = plt.subplots(nrows=len(spaces), ncols=len(varying), figsize=(10, 5))
+    # Share x within columns
+    for j in range(len(varying)):
+        master = axes[0, j]
+        for i in range(1, len(spaces)):
+            axes[i, j].sharex(master)
+
+    # Share y within rows
+    for i in range(len(spaces)):
+        master = axes[i, 0]
+        for j in range(1, len(varying)):
+            axes[i, j].sharey(master)
+
+    for i in range(len(spaces)):
+        for j in range(len(varying)):
+            for agent in agents:
+                data = results_df.copy()
+                data = data[(data["agent"] == agent) & (data["space"] == spaces[i])]
+
+                for hyp in varying:
+                    if hyp != varying[j]:
+                        best = best_df[best_df["agent"] == agent][hyp[0]].tolist()[0]
+                        if pd.notna(best):
+                            data = data[data[hyp[0]] == best]
+
+                if not pd.notna(data[varying[j][0]].tolist()[0]):
+                    continue
+
+                x = data[varying[j][0]].tolist()
+                y = data["eval_cumulative_reward"].tolist()
+
+                axes[i, j].plot(np.arange(len(x)), y, color=colors[agents.index(agent)],
+                                          label=agent, marker=markers[agents.index(agent)])
+                axes[i, j].set_xticks(np.arange(len(x)))
+                axes[i, j].set_xticklabels(x)
+                axes[0, j].set_title(varying[j][1])
+                axes[len(spaces)-1, j].set_xlabel("Value")
+                axes[i, 0].set_ylabel(f"{spaces[i]}\nCum. Reward")
+
+                if best_df[best_df["agent"] == agent][varying[j][0]].tolist()[0] in x:
+                    axes[i, j].axvline(
+                        x.index(best_df[best_df["agent"] == agent][varying[j][0]].tolist()[0]),
+                        color=colors[agents.index(agent)],
+                        linestyle="--",
+                        alpha=0.3
+                    )
+
+    for ax in axes[:-1, :].flat:
+        ax.tick_params(labelbottom=False)
+
+    for ax in axes[:, 1:].flat:
+        ax.tick_params(labelleft=False)
+
+    legend_handles = []
+
+    for k, agent in enumerate(agents):
+        legend_handles.append(
+            Line2D([0], [0],
+                   color=colors[k],
+                   marker=markers[k],
+                   linestyle='-',
+                   label=agent)
+        )
+
+        legend_handles.append(
+            Line2D([0], [0],
+                   color=colors[k],
+                   linestyle='--',
+                   alpha=0.3,
+                   label=f"{agent} default")
+        )
+
+    fig.legend(handles=legend_handles, loc="upper center", ncol=len(legend_handles), frameon=False,
+               bbox_to_anchor=(0.5, 0.94))
+    fig.suptitle("Agent's Cumulative Reward by Space Layout and Parameter", y=0.98, size="xx-large")
+    plt.tight_layout(rect=(0.0, 0.0, 1.0, 0.95))
+    save_fig(fig, out_dir / f"plot_matrix.png", False)
+
+
 def main(run_dir_arg: str) -> None:
     run_dir = Path(run_dir_arg)
     out_dir = run_dir / "analysis"
@@ -279,6 +369,8 @@ def main(run_dir_arg: str) -> None:
 
     print("\nSaving best configs...")
     save_best_configs(results_df, out_dir)
+
+    visualize_plot_matrix(results_df, varying, out_dir)
 
     print(f"\nAll outputs saved in: {out_dir}")
 
