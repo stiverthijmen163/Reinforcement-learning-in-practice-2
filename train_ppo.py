@@ -123,6 +123,9 @@ def train(args):
     print("state_dim:", state_dim)
     print("action_dim:", action_dim)
 
+    # REWARD SCALING
+    reward_scale = 1000.0
+    
     recent_rewards = []
 
     for episode in trange(args.episodes):
@@ -145,7 +148,7 @@ def train(args):
                 state=obs,
                 action=action,
                 log_prob=log_prob,
-                reward=reward,
+                reward=reward / reward_scale, # REWARD SCALING
                 done=done,
                 value=value,
             )
@@ -232,6 +235,9 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         batch_size=batch_size,
     )
 
+    # REWARD SCALING
+    reward_scale = 1000.0
+    
     episode_rewards = []
     episode_lengths = []
     all_training_positions = []
@@ -255,7 +261,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
                 state=obs,
                 action=action,
                 log_prob=log_prob,
-                reward=reward,
+                reward=reward / reward_scale, # REWARD SCALING
                 done=done,
                 value=value,
             )

@@ -61,6 +61,9 @@ def parse_args():
                    help="Replay buffer capacity")
     p.add_argument("--target_update_freq", type=int, default=1000,
                    help="Steps between target network updates")
+    p.add_argument("--reward_scale", type=float, default=None,
+               help="Divide rewards by this before DQN updates. "
+                    "If None, defaults to max_steps.")
 
     # Evaluation arguments
     p.add_argument("--obs_mode", choices=["xy", "sensors", "both"], default="both",
@@ -77,7 +80,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          min_epsilon, epsilon_anneal_steps, batch_size, replay_capacity, target_update_freq,
          eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
-         save_path=None, save_image=True, experiment_name=None):
+         save_path=None, save_image=True, experiment_name=None, reward_scale = None):
     """Main training loop.
 
     Extra params for run_experiments.py:
@@ -119,7 +122,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     # Normalise rewards by max_steps so the step penalty stays meaningful relative to
     # the target reward. Dividing by the normal target reward (4000) makes step=-0.00025,
     # which is so small that the Q-values seems to collapse and learning fails.
-    reward_scale = float(max_steps)
+    if reward_scale is None:
+        reward_scale = float(max_steps)
 
     # Initialise DQN agent
     agent = DQNAgent(
@@ -166,12 +170,16 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
             _, reward, done, _ = env.step(action)
             next_state = obs_builder.build(env.agent_pos)
             all_training_positions.append(env.agent_pos)
+            
+            #REWARD SCALING
+            unscaled_reward = reward
+            scaled_reward = reward / reward_scale
 
-            agent.update(state, action, reward / reward_scale, next_state, done)
+            agent.update(state, action, scaled_reward, next_state, done)
             max_q = float(np.max(agent.q_network.forward(state)))
             env.update_metrics(epsilon=agent.epsilon, loss=agent.last_loss, max_q=max_q)
             state = next_state
-            total_reward += reward
+            total_reward += unscaled_reward
 
             if done:
                 break
@@ -258,4 +266,5 @@ if __name__ == "__main__":
         args.eval_freq,
         args.eval_episodes,
         obs_mode=args.obs_mode,
+        reward_scale=args.reward_scale,
     )
