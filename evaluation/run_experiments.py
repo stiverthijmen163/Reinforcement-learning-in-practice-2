@@ -66,7 +66,7 @@ def build_experiments() -> list[dict]:
             if agent == "dqn":
                 for (sigma, episodes, max_steps, lr, gamma,
                      batch_size, replay_cap, target_upd_freq,
-                     epsilon, min_epsilon, anneal_steps, obs_mode,
+                     epsilon, min_epsilon, anneal_steps, obs_mode, reward_scale,
                 ) in product(
                     Config.SIGMAS,
                     Config.EPISODES,
@@ -80,6 +80,7 @@ def build_experiments() -> list[dict]:
                     Config.MIN_EPSILONS,
                     Config.EPSILON_ANNEAL_STEPS,
                     Config.OBS_MODES,
+                    Config.REWARD_SCALES,
                 ):
                     experiments.append({
                         **shared,
@@ -95,6 +96,7 @@ def build_experiments() -> list[dict]:
                         "min_epsilon":          min_epsilon,
                         "epsilon_anneal_steps": anneal_steps,
                         "obs_mode":             obs_mode,
+                        "reward_scale": reward_scale,
                     })
 
             elif agent == "ppo":
@@ -170,6 +172,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             eval_freq            = Config.EVAL_FREQ,
             eval_episodes        = Config.EVAL_EPISODES,
             obs_mode             = experiment["obs_mode"],
+            reward_scale         = experiment["reward_scale"],
             save_path            = run_dir,
             save_image           = Config.SAVE_IMAGES,
             experiment_name      = f"exp_{exp_id:04d}",

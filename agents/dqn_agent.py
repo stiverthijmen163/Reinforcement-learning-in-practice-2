@@ -207,7 +207,7 @@ class DQNAgent(BaseAgent):
 
         # Warm-up: don't train until buffer has this many transitions.
         # Made a bit smaller relative to replay capacity so training starts a bit earlier
-        self.warmup = min(replay_capacity // 10, 1000)
+        self.warmup = min(replay_capacity // 2, 50000)
         # Epsilon annealing (linear): track start/end and anneal duration (in training steps)
         self.epsilon_start = epsilon
         self.epsilon_end = min_epsilon

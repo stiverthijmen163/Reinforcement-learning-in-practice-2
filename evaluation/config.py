@@ -16,36 +16,40 @@ class Config:
 
     # start_pos: None means use the position stored in the space file
     SPACES = {
-        "spaces/easy_space.pickle": {"start_pos": None},
+        # "spaces/easy_space.pickle": {"start_pos": None},
         # "spaces/test_space.pickle": {"start_pos": None},
-        #"spaces/restaurant_1_space.pickle": {"start_pos": None}, # 50*50 map
+        # "spaces/restaurant_1_space.pickle": {"start_pos": None}, # 50*50 map
+        # "spaces/restaurant_2_space.pickle": {"start_pos": (17.5, 5.0) }
+        "spaces/u_path_space.pickle": {"start_pos": None},
     }
     # "dqn" and, or "ppo"
     AGENTS = ["dqn"]
 
     # Shared parameters
-    SIGMAS      = [0.1]   # Stochasticity
+    SIGMAS      = [0.0]   # Stochasticity
     RANDOM_SEED = 0             # Fixed seed for reproducibility across all runs
 
     # Shared training parameters (used by both DQN and PPO)
-    EPISODES      = [200]  # TODO: set higher for real experiments
-    MAX_STEPS     = [200]
-    LEARNING_RATES = [0.001]
+    EPISODES      = [10000]  # TODO: set higher for real experiments
+    MAX_STEPS     = [250]
+    LEARNING_RATES = [0.0001] # 0.001 for PPO worked okay
     GAMMAS        = [0.99]
-    BATCH_SIZES   = [32]
+    BATCH_SIZES   = [128]
 
     # Observation mode ("xy", "sensors", or "both")
     OBS_MODES = ["both"]
 
     # DQN-specific hyperparameters
-    REPLAY_CAPACITIES    = [10000]
+    REPLAY_CAPACITIES    = [30000]
     TARGET_UPDATE_FREQS  = [1000]
     EPSILONS             = [1.0]
-    MIN_EPSILONS         = [0.01]
-    EPSILON_ANNEAL_STEPS = [None]   # None: default: episodes × max_steps // 2
+    MIN_EPSILONS         = [0.05]
+    EPSILON_ANNEAL_STEPS = [1500000]   # None: default: episodes × max_steps // 2
+    
+    REWARD_SCALES = [100.0]
 
     # PPO-specific hyperparameters
-    ROLLOUT_SIZES  = [512]
+    ROLLOUT_SIZES  = [2048]
     GAE_LAMBDAS    = [0.95]
     CLIP_EPSILONS  = [0.2]
     UPDATE_EPOCHS  = [4]
@@ -59,4 +63,4 @@ class Config:
 
     # Set VERBOSE = False to suppress all output from training scripts
     # and only show the progress bar from run_experiments.py itself
-    VERBOSE = False
+    VERBOSE = True
