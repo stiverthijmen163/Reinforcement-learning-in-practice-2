@@ -220,3 +220,25 @@ class PPOAgent(BaseAgent):
                 self.optimizer.step()
 
         self.clear_memory()
+
+    def save(self, path, obs_mode: str = "both") -> None:
+        """Save ppo agent and obs_mode to a .pt file."""
+        torch.save({
+            "agent_type": "ppo",
+            "obs_mode":   obs_mode,
+            "state_dict": self.model.state_dict(),
+        }, path)
+
+    @classmethod
+    def load(cls, path) -> 'PPOAgent':
+        """Load saved PPOAgent"""
+        checkpoint = torch.load(path, weights_only=False)
+        state_dict = checkpoint["state_dict"]
+        agent = cls(
+            state_dim  = state_dict["net.0.weight"].shape[1],
+            action_dim = state_dict["actor.weight"].shape[0],
+            hidden_dim = state_dict["net.0.weight"].shape[0],
+        )
+        agent.model.load_state_dict(state_dict)
+        agent.obs_mode = checkpoint["obs_mode"]
+        return agent

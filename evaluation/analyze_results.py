@@ -23,32 +23,32 @@ import pandas as pd
 
 
 EVAL_METRICS = {
-    "eval_cumulative_reward":     "Eval reward",
+    "eval_cumulative_reward": "Eval reward",
     "eval_total_targets_reached": "Target reached",
-    "eval_total_steps":           "Steps to finish",
-    "eval_total_collision":       "Collisions",
+    "eval_total_steps": "Steps to finish",
+    "eval_total_collision": "Collisions",
 }
 
 PARAM_LABELS = {
     # Shared
-    "sigma":                "Sigma (σ)",
-    "episodes":             "Episodes",
-    "max_steps":            "Max steps",
-    "learning_rate":        "Learning rate (α)",
-    "gamma":                "Gamma (γ)",
-    "batch_size":           "Batch size",
+    "sigma": "Sigma (σ)",
+    "episodes": "Episodes",
+    "max_steps": "Max steps",
+    "learning_rate": "Learning rate (α)",
+    "gamma": "Gamma (γ)",
+    "batch_size": "Batch size",
     # DQN-specific
-    "replay_capacity":      "Replay capacity",
-    "target_update_freq":   "Target update freq",
-    "epsilon":              "Initial epsilon (ε)",
-    "min_epsilon":          "Min epsilon",
-    "patience":             "Patience",
-    "min_delta":            "Min delta",
+    "replay_capacity": "Replay capacity",
+    "target_update_freq": "Target update freq",
+    "epsilon": "Initial epsilon (ε)",
+    "min_epsilon": "Min epsilon",
+    "patience": "Patience",
+    "min_delta": "Min delta",
     # PPO-specific
-    "rollout_size":         "Rollout size",
-    "gae_lambda":           "GAE lambda (λ)",
-    "clip_epsilon":         "Clip epsilon (ε)",
-    "update_epochs":        "Update epochs",
+    "rollout_size": "Rollout size",
+    "gae_lambda": "GAE lambda (λ)",
+    "clip_epsilon": "Clip epsilon (ε)",
+    "update_epochs": "Update epochs",
 }
 
 SMOOTHING_WINDOW = 50   # Episodes to smooth over for training curve plots

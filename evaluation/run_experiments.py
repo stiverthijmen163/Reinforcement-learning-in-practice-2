@@ -175,6 +175,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             reward_scale         = experiment["reward_scale"],
             save_path            = run_dir,
             save_image           = Config.SAVE_IMAGES,
+            save_model           = Config.SAVE_MODELS,
             experiment_name      = f"exp_{exp_id:04d}",
         )
 
@@ -200,6 +201,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             obs_mode             = experiment["obs_mode"],
             save_path            = run_dir,
             save_image           = Config.SAVE_IMAGES,
+            save_model           = Config.SAVE_MODELS,
             experiment_name      = f"exp_{exp_id:04d}",
         )
 

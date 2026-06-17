@@ -1,6 +1,7 @@
 import random
 import sys
 from argparse import ArgumentParser
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -64,6 +65,8 @@ def parse_args():
                    help="Evaluate every N episodes")
     p.add_argument("--eval_episodes", type=int, default=10,
                    help="Number of evaluation episodes")
+    p.add_argument("--save_model", action="store_true",
+                   help="Save trained model weights after training")
 
     return p.parse_args()
 
@@ -194,7 +197,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          update_epochs, batch_size, rollout_size,
          eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
-         save_path=None, save_image=True, experiment_name=None):
+         save_path=None, save_image=True, experiment_name=None,
+         save_model=False):
     """PPO training loop compatible with run_experiments.py.
 
     Returns a dict with episode_rewards, episode_lengths, and eval_* metrics.
@@ -298,6 +302,12 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         sensor_range=sensor_range,
     )
 
+    if save_model and save_path is not None:
+        models_dir = Path(save_path) / "saved_models"
+        models_dir.mkdir(exist_ok=True)
+        agent.save(models_dir / f"{experiment_name}.pt", obs_mode=obs_mode)
+        print(f"Model saved in {models_dir / f'{experiment_name}.pt'}")
+
     return {
         "episode_rewards": episode_rewards,
         "episode_lengths": episode_lengths,
@@ -307,9 +317,16 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
 
 if __name__ == "__main__":
     args = parse_args()
+    save_path = None
+    experiment_name = None
+    if args.save_model:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_path = Path("results") / "saved_models"
+        save_path.mkdir(parents=True, exist_ok=True)
+        experiment_name = f"ppo_{timestamp}"
     main(
         grid_paths=[args.GRID],
-        no_gui=args.no_gui,
+        no_gui=not args.gui,
         sigma=args.sigma,
         fps=args.fps,
         random_seed=args.random_seed,
@@ -327,4 +344,7 @@ if __name__ == "__main__":
         eval_episodes=args.eval_episodes,
         obs_mode=args.obs_mode,
         sensor_range=args.sensor_range,
+        save_path=save_path,
+        experiment_name=experiment_name,
+        save_model=args.save_model,
     )

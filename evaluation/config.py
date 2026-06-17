@@ -30,7 +30,7 @@ class Config:
     RANDOM_SEED = 0             # Fixed seed for reproducibility across all runs
 
     # Shared training parameters (used by both DQN and PPO)
-    EPISODES      = [10000]  # TODO: set higher for real experiments
+    EPISODES      = [10, 20]  # TODO: set higher for real experiments
     MAX_STEPS     = [250]
     LEARNING_RATES = [0.0001] # 0.001 for PPO worked okay
     GAMMAS        = [0.99]
@@ -60,6 +60,10 @@ class Config:
 
     # Set SAVE_IMAGES = False to skip path/heatmap images
     SAVE_IMAGES = True
+
+    # Set SAVE_MODELS = True to save trained model weights to saved_models/
+    # For experiments this will be in the experiments folder
+    SAVE_MODELS = True
 
     # Set VERBOSE = False to suppress all output from training scripts
     # and only show the progress bar from run_experiments.py itself

@@ -5,6 +5,7 @@ using continuous state representation with LiDAR sensors.
 """
 import sys
 from argparse import ArgumentParser
+from datetime import datetime
 from pathlib import Path
 from tqdm import trange
 import numpy as np
@@ -72,6 +73,8 @@ def parse_args():
                    help="Evaluate every N episodes")
     p.add_argument("--eval_episodes", type=int, default=10,
                    help="Number of evaluation episodes")
+    p.add_argument("--save_model", action="store_true",
+                   help="Save trained model weights after training")
     return p.parse_args()
 
 
@@ -80,7 +83,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          min_epsilon, epsilon_anneal_steps, batch_size, replay_capacity, target_update_freq,
          eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
-         save_path=None, save_image=True, experiment_name=None, reward_scale = None):
+         save_path=None, save_image=True, experiment_name=None, reward_scale=None,
+         save_model=False):
     """Main training loop.
 
     Extra params for run_experiments.py:
@@ -235,6 +239,12 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         sensor_range=sensor_range,
     )
 
+    if save_model and save_path is not None:
+        models_dir = Path(save_path) / "saved_models"
+        models_dir.mkdir(exist_ok=True)
+        agent.save(models_dir / f"{experiment_name}.pt", obs_mode=obs_mode)
+        print(f"Model saved in {models_dir / f'{experiment_name}.pt'}")
+
     return {
         "episode_rewards":  episode_rewards,
         "episode_lengths":  episode_lengths,
@@ -246,6 +256,13 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
 
 if __name__ == "__main__":
     args = parse_args()
+    save_path = None
+    experiment_name = None
+    if args.save_model:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_path = Path("results") / "saved_models"
+        save_path.mkdir(parents=True, exist_ok=True)
+        experiment_name = f"dqn_{timestamp}"
     main(
         args.GRID,
         not args.gui,
@@ -267,4 +284,7 @@ if __name__ == "__main__":
         args.eval_episodes,
         obs_mode=args.obs_mode,
         reward_scale=args.reward_scale,
+        save_path=save_path,
+        experiment_name=experiment_name,
+        save_model=args.save_model,
     )

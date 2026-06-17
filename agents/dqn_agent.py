@@ -7,6 +7,7 @@ from agents import BaseAgent
 from collections import deque
 import numpy as np
 import random
+import torch
 
 
 class ReplayBuffer:
@@ -290,3 +291,32 @@ class DQNAgent(BaseAgent):
             print(f"[DQN] step={self.training_step} loss={self.last_loss:.6f} buffer={len(self.replay_buffer)} epsilon={self.epsilon:.4f}")
 
         self.q_network.backward(states, td_target, learning_rate=self.learning_rate)
+
+    def save(self, path, obs_mode: str = "both") -> None:
+        """Save q_network weights, and obs_mode to a .pt file."""
+        torch.save({
+            "agent_type": "dqn",
+            "obs_mode":   obs_mode,
+            "W1": self.q_network.W1, "b1": self.q_network.b1,
+            "W2": self.q_network.W2, "b2": self.q_network.b2,
+            "W3": self.q_network.W3, "b3": self.q_network.b3,
+        }, path)
+
+    @classmethod
+    def load(cls, path) -> 'DQNAgent':
+        """Load a DQNAgent"""
+        checkpoint = torch.load(path, weights_only=False)
+        agent = cls(
+            n_actions   = checkpoint["W3"].shape[1],
+            input_size  = checkpoint["W1"].shape[0],
+            hidden_size = checkpoint["W1"].shape[1],
+        )
+        agent.q_network.W1 = checkpoint["W1"]
+        agent.q_network.b1 = checkpoint["b1"]
+        agent.q_network.W2 = checkpoint["W2"]
+        agent.q_network.b2 = checkpoint["b2"]
+        agent.q_network.W3 = checkpoint["W3"]
+        agent.q_network.b3 = checkpoint["b3"]
+        agent.obs_mode = checkpoint["obs_mode"]
+        agent.set_training(False)
+        return agent
