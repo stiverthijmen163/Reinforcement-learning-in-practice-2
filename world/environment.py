@@ -39,13 +39,15 @@ class Environment:
         """
         random.seed(random_seed)
 
+        self.agent_start_pos = agent_start_pos
+
         # Check if space layout exists
         if not space_path.exists():
             raise FileNotFoundError(f"Grid {space_path} does not exist.")
         else:
             self.space_fp = space_path
 
-            self.x_max, self.y_max, self.obstacles, self.agent_start_pos, self.target_pos = None, None, None, None, None
+            self.x_max, self.y_max, self.obstacles, self.target_pos = None, None, None, None
 
         # Initialize up reward function
         if reward_fn is None:
