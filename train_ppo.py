@@ -20,7 +20,7 @@ def parse_args():
 
     p.add_argument("GRID", type=Path,
                    help="Paths to the grid file to use.")
-    p.add_argument("--gui", action="store_true",
+    p.add_argument("--no_gui", action="store_true",
                    help="Open debug viewer during training")
     p.add_argument("--sigma", type=float, default=0.1,
                    help="Sigma value for the stochasticity of the environment.")
@@ -287,7 +287,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         space_fp=grid_paths[0],
         agent=agent,
         max_steps=max_steps,
-        sigma=sigma,
+        sigma=0.0,
         agent_start_pos=agent_start,
         random_seed=random_seed,
         training_positions=all_training_positions,
