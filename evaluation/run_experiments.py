@@ -313,6 +313,8 @@ def main(sequential: bool = False) -> None:
 
     print(f"\nAnalyze with:")
     print(f"  python -m evaluation.analyze_results {run_dir}")
+    print(f"or with   python -m evaluation.analyze_results_v2 {run_dir}")
+
 
 
 if __name__ == "__main__":
