@@ -21,8 +21,8 @@ class Environment:
             reward_fn: callable = None,
             target_fps: int = 30,
             random_seed: int | float | str | bytes | bytearray | None = 0,
-            agent_radius: float = 0.1,
-            target_radius: float = 0.2,
+            agent_radius: float = 0.3,
+            target_radius: float = 0.5,
     ) -> None:
         """
         Initializes the overall space environment used for solving the delivering agent problem.
@@ -312,7 +312,7 @@ class Environment:
                        agent_start_pos: tuple[float, float] = None,
                        random_seed: int | float | str | bytes | bytearray = 0, reward_fn: callable = None,
                        save_path: Path = None, save_name: str = None,
-                       save_image: bool = True, agent_radius: float = 0.1,
+                       save_image: bool = True, agent_radius: float = 0.3,
                        training_positions: list[tuple[float, float]] = None,
                        obs_mode: str = "both", sensor_range: float = 10.0) -> dict:
         """

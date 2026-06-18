@@ -1,0 +1,17 @@
+exp_id,agent,space,start_pos,sigma,episodes,max_steps,learning_rate,gamma,batch_size,rollout_size,gae_lambda,clip_epsilon,update_epochs,obs_mode,eval_cumulative_reward,eval_total_steps,eval_total_agent_moves,eval_total_failed_moves,eval_total_targets_reached,eval_total_collision,eval_targets_remaining
+0,ppo,restaurant_2_space,None,0.0,2000,500,0.0001,0.999,64,512,0.95,0.2,4,both,3981.0,20,20,0,1,0,0
+1,ppo,restaurant_2_space,None,0.0,2000,500,0.0001,0.999,64,512,0.99,0.2,4,both,-509.0,500,500,0,0,1,1
+2,ppo,restaurant_2_space,None,0.0,2000,500,0.0001,0.999,128,512,0.95,0.2,4,both,3971.0,30,30,0,1,0,0
+3,ppo,restaurant_2_space,None,0.0,2000,500,0.0001,0.999,128,512,0.99,0.2,4,both,-500.0,500,500,0,0,0,1
+4,ppo,restaurant_2_space,None,0.0,5000,500,0.0001,0.999,64,512,0.95,0.2,4,both,3981.0,20,20,0,1,0,0
+5,ppo,restaurant_2_space,None,0.0,5000,500,0.0001,0.999,64,512,0.99,0.2,4,both,3991.0,10,10,0,1,0,0
+6,ppo,restaurant_2_space,None,0.0,5000,500,0.0001,0.999,128,512,0.95,0.2,4,both,3981.0,20,20,0,1,0,0
+7,ppo,restaurant_2_space,None,0.0,5000,500,0.0001,0.999,128,512,0.99,0.2,4,both,3982.0,10,10,0,1,1,0
+8,ppo,restaurant_2_space,None,0.1,2000,500,0.0001,0.999,64,512,0.95,0.2,4,both,3991.0,10,10,0,1,0,0
+9,ppo,restaurant_2_space,None,0.1,2000,500,0.0001,0.999,64,512,0.99,0.2,4,both,-500.0,500,500,0,0,0,1
+10,ppo,restaurant_2_space,None,0.1,2000,500,0.0001,0.999,128,512,0.95,0.2,4,both,3989.0,12,12,0,1,0,0
+11,ppo,restaurant_2_space,None,0.1,2000,500,0.0001,0.999,128,512,0.99,0.2,4,both,-509.0,500,500,0,0,1,1
+12,ppo,restaurant_2_space,None,0.1,5000,500,0.0001,0.999,64,512,0.95,0.2,4,both,3979.0,13,13,0,1,1,0
+13,ppo,restaurant_2_space,None,0.1,5000,500,0.0001,0.999,64,512,0.99,0.2,4,both,-500.0,500,500,0,0,0,1
+14,ppo,restaurant_2_space,None,0.1,5000,500,0.0001,0.999,128,512,0.95,0.2,4,both,-500.0,500,500,0,0,0,1
+15,ppo,restaurant_2_space,None,0.1,5000,500,0.0001,0.999,128,512,0.99,0.2,4,both,3987.0,14,14,0,1,0,0

@@ -17,7 +17,7 @@ directions = [
     (-1, 0),   # West
     (-1, 1),   # North-West
 ]
-step_sizes = [0.2, 0.5, 1.0]
+step_sizes = [0.2, 0.5, 1.0, 3.0]
 ACTIONS = {i: (dir, s) for i, (dir, s) in enumerate((dir, s) for dir in directions for s in step_sizes)}
 
 

@@ -30,10 +30,12 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
+# Add world/ to path so environment imports work in subprocesses
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from evaluation.config import Config
 
-# Add world/ to path so environment imports work in subprocesses
-sys.path.insert(0, str(Path(__file__).parent.parent / "world"))
 
 ### Agent train functions
 # To add a new agent: import its module and add an entry here
