@@ -52,7 +52,7 @@ class Environment:
         # Initialize up reward function
         if reward_fn is None:
             warn("No reward function provided. Using default reward.")
-            self.reward_fn = self._default_reward_function
+            self.reward_fn = None
         else:
             self.reward_fn = reward_fn
 
@@ -266,7 +266,7 @@ class Environment:
         self.info["actual_action"] = actual_action
 
         # Calculate the reward for the agent
-        reward = self.reward_fn(next_pos, self.agent_pos)
+        reward = self._default_reward_function(next_pos, self.agent_pos)
 
         # Make the move
         self._move_agent(next_pos)
@@ -293,17 +293,20 @@ class Environment:
             move, _ = get_pos_type(agent_pos, self.agent_radius, self.target_pos, self.target_radius,
                                 self.obstacles, (self.x_max, self.y_max))
 
-        match move:
-            case 0:  # Moved to an empty tile
-                reward = -1
-            case 1 | 2:  # Moved out of bounds or to an obstacle
-                reward = -10
-                pass
-            case 3:  # Moved to a target tile
-                reward = 10 * self.x_max * self.y_max
-            case _:  # "Illegal move"
-                raise ValueError(f"Grid cell should not have value: {move}.",
-                                 f"at position {agent_pos}")
+        if self.reward_fn:
+            reward = self.reward_fn(move, self.x_max, self.y_max)
+        else:
+            match move:
+                case 0:  # Moved to an empty tile
+                    reward = -1
+                case 1 | 2:  # Moved out of bounds or to an obstacle
+                    reward = -10
+                    pass
+                case 3:  # Moved to a target tile
+                    reward = 10 * self.x_max * self.y_max
+                case _:  # "Illegal move"
+                    raise ValueError(f"Grid cell should not have value: {move}.",
+                                     f"at position {agent_pos}")
         return reward
 
 

@@ -57,7 +57,7 @@ class ObservationBuilder:
         if self.obs_mode == "xy":
             return np.array([x, y], dtype=np.float32)
 
-        sensors = self.get_sensor_readings(x, y)
+        sensors = self.get_sensor_readings(x, y) / self.sensor_range
 
         if self.obs_mode == "sensors":
             return sensors

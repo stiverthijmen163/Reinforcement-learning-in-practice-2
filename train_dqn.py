@@ -20,7 +20,7 @@ from world.environment import Environment
 from world.state import ObservationBuilder
 
 # 24 actions: 8 directions × 3 step sizes (0.2, 0.5, 1.0), as defined in world/helpers.py ACTIONS.
-N_ACTIONS = 24
+N_ACTIONS = 32
 
 def parse_args():
     """Parse command-line arguments."""
@@ -84,7 +84,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
          save_path=None, save_image=True, experiment_name=None, reward_scale=None,
-         save_model=False):
+         save_model=False, reward_fn = None):
     """Main training loop.
 
     Extra params for run_experiments.py:
@@ -113,6 +113,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         agent_start_pos=agent_start,
         target_fps=fps,
         random_seed=random_seed,
+        reward_fn=reward_fn,
     )
 
     env = DebugViewer(env)
@@ -200,7 +201,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
                 env.reset()
                 s = obs_builder.build(env.agent_pos)
                 ep_r = 0.0
-                for _ in range(max_steps):
+                for step in range(max_steps):
                     a = agent.greedy_action(s)
                     _, r, d, _ = env.step(a)
                     s = obs_builder.build(env.agent_pos)
@@ -228,7 +229,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         space_fp=grid_paths[0],
         agent=agent,
         max_steps=max_steps,
-        sigma=sigma,
+        sigma=0.0,
         agent_start_pos=agent_start,
         random_seed=random_seed,
         training_positions=all_training_positions,

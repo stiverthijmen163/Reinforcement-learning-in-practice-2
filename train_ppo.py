@@ -198,7 +198,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
          save_path=None, save_image=True, experiment_name=None,
-         save_model=False):
+         save_model=False, reward_fn=None):
     """PPO training loop compatible with run_experiments.py.
 
     Returns a dict with episode_rewards, episode_lengths, and eval_* metrics.
@@ -222,6 +222,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         agent_start_pos=agent_start,
         target_fps=fps,
         random_seed=random_seed,
+        reward_fn=reward_fn,
     )
 
     obs_builder = ObservationBuilder(env, obs_mode, sensor_range)
@@ -326,7 +327,7 @@ if __name__ == "__main__":
         experiment_name = f"ppo_{timestamp}"
     main(
         grid_paths=[args.GRID],
-        no_gui=not args.gui,
+        no_gui=not args.no_gui,
         sigma=args.sigma,
         fps=args.fps,
         random_seed=args.random_seed,

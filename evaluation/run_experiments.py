@@ -35,6 +35,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from evaluation.config import Config
+from world.reward_functions import REWARD_FUNCTIONS
 
 
 ### Agent train functions
@@ -68,7 +69,7 @@ def build_experiments() -> list[dict]:
             if agent == "dqn":
                 for (sigma, episodes, max_steps, lr, gamma,
                      batch_size, replay_cap, target_upd_freq,
-                     epsilon, min_epsilon, anneal_steps, obs_mode, reward_scale,
+                     epsilon, min_epsilon, anneal_steps, obs_mode, reward_scale, reward_fn,
                 ) in product(
                     Config.SIGMAS,
                     Config.EPISODES,
@@ -83,6 +84,7 @@ def build_experiments() -> list[dict]:
                     Config.EPSILON_ANNEAL_STEPS,
                     Config.OBS_MODES,
                     Config.REWARD_SCALES,
+                    Config.REWARD_FNs
                 ):
                     experiments.append({
                         **shared,
@@ -98,13 +100,14 @@ def build_experiments() -> list[dict]:
                         "min_epsilon":          min_epsilon,
                         "epsilon_anneal_steps": anneal_steps,
                         "obs_mode":             obs_mode,
-                        "reward_scale": reward_scale,
+                        "reward_scale":         reward_scale,
+                        "reward_fn":            reward_fn
                     })
 
             elif agent == "ppo":
                 for (sigma, episodes, max_steps, lr, gamma,
                      batch_size, rollout_size, gae_lambda,
-                     clip_epsilon, update_epochs, obs_mode,
+                     clip_epsilon, update_epochs, obs_mode, reward_fn
                 ) in product(
                     Config.SIGMAS,
                     Config.EPISODES,
@@ -117,6 +120,7 @@ def build_experiments() -> list[dict]:
                     Config.CLIP_EPSILONS,
                     Config.UPDATE_EPOCHS,
                     Config.OBS_MODES,
+                    Config.REWARD_FNs
                 ):
                     experiments.append({
                         **shared,
@@ -131,6 +135,7 @@ def build_experiments() -> list[dict]:
                         "clip_epsilon":  clip_epsilon,
                         "update_epochs": update_epochs,
                         "obs_mode":      obs_mode,
+                        "reward_fn":     reward_fn
                     })
 
     return experiments
@@ -179,6 +184,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             save_image           = Config.SAVE_IMAGES,
             save_model           = Config.SAVE_MODELS,
             experiment_name      = f"exp_{exp_id:04d}",
+            reward_fn            = REWARD_FUNCTIONS[experiment["reward_fn"]],
         )
 
     elif agent == "ppo":
@@ -205,6 +211,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             save_image           = Config.SAVE_IMAGES,
             save_model           = Config.SAVE_MODELS,
             experiment_name      = f"exp_{exp_id:04d}",
+            reward_fn=REWARD_FUNCTIONS[experiment["reward_fn"]],
         )
 
     results = results or {}
@@ -252,6 +259,7 @@ def _worker(args: tuple) -> tuple[dict, list[dict]]:
 
 def main(sequential: bool = False) -> None:
     experiments = build_experiments()
+    print(experiments)
     n = len(experiments)
     print(f"Built {n} experiments")
     print(f"Images: {'enabled' if Config.SAVE_IMAGES else 'disabled'} "

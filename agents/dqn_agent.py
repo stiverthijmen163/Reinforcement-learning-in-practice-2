@@ -208,7 +208,7 @@ class DQNAgent(BaseAgent):
 
         # Warm-up: don't train until buffer has this many transitions.
         # Made a bit smaller relative to replay capacity so training starts a bit earlier
-        self.warmup = min(replay_capacity // 2, 50000)
+        self.warmup = min(replay_capacity // 2, 10000)
         # Epsilon annealing (linear): track start/end and anneal duration (in training steps)
         self.epsilon_start = epsilon
         self.epsilon_end = min_epsilon
@@ -287,8 +287,8 @@ class DQNAgent(BaseAgent):
         td_target[idx, actions] = rewards + self.gamma * max_next_q * (1.0 - dones.astype(float))
 
         self.last_loss = float(np.mean((orig_q - td_target[idx, actions]) ** 2))
-        if self.training_step % self.log_every == 0:
-            print(f"[DQN] step={self.training_step} loss={self.last_loss:.6f} buffer={len(self.replay_buffer)} epsilon={self.epsilon:.4f}")
+        # if self.training_step % self.log_every == 0:
+        #     print(f"[DQN] step={self.training_step} loss={self.last_loss:.6f} buffer={len(self.replay_buffer)} epsilon={self.epsilon:.4f}")
 
         self.q_network.backward(states, td_target, learning_rate=self.learning_rate)
 
