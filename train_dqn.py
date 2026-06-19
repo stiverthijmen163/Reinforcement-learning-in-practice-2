@@ -75,7 +75,64 @@ def parse_args():
                    help="Number of evaluation episodes")
     p.add_argument("--save_model", action="store_true",
                    help="Save trained model weights after training")
+    p.add_argument("--early_stop", action="store_true",
+               help="Stop training when greedy evaluation reward has converged.")
     return p.parse_args()
+
+def run_greedy_evaluation(
+    space_path,
+    agent,
+    max_steps,
+    eval_episodes,
+    obs_mode,
+    sensor_range,
+    agent_start,
+    random_seed,
+    reward_fn=None,
+):
+    eval_rewards = []
+    successes = []
+
+    old_training = getattr(agent, "training", None)
+
+    if hasattr(agent, "set_training"):
+        agent.set_training(False)
+
+    for eval_idx in range(eval_episodes):
+        eval_env = Environment(
+            space_path=space_path,
+            no_gui=True,
+            sigma=0.0,
+            agent_start_pos=agent_start,
+            target_fps=-1,
+            random_seed=random_seed + eval_idx,
+            reward_fn=reward_fn,
+        )
+
+        eval_env.reset()
+        obs_builder = ObservationBuilder(eval_env, obs_mode, sensor_range)
+        state = obs_builder.build(eval_env.agent_pos)
+
+        episode_reward = 0.0
+        info = {"target_reached": False}
+
+        for _ in range(max_steps):
+            action = agent.greedy_action(state)
+            _, reward, done, info = eval_env.step(action)
+
+            state = obs_builder.build(eval_env.agent_pos)
+            episode_reward += reward
+
+            if done:
+                break
+
+        eval_rewards.append(episode_reward)
+        successes.append(1.0 if info.get("target_reached", False) else 0.0)
+
+    if old_training is not None and hasattr(agent, "set_training"):
+        agent.set_training(old_training)
+
+    return float(np.mean(eval_rewards)), float(np.mean(successes))
 
 
 def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
@@ -84,7 +141,7 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
          save_path=None, save_image=True, experiment_name=None, reward_scale=None,
-         save_model=False, reward_fn = None):
+         save_model=False, reward_fn = None, early_stop=False,):
     """Main training loop.
 
     Extra params for run_experiments.py:
@@ -163,6 +220,15 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
 
     # Track all positions visited during each episode for heatmap visualization
     all_training_positions = []
+    
+    # Early stopping constants
+    EARLY_STOP_PATIENCE = 10
+    EARLY_STOP_DELTA = 1.0
+    MIN_EVAL_REWARD = 0.0
+    
+    best_eval_reward = -float("inf")
+    early_stop_counter = 0
+    stopped_early = False
 
     for episode in trange(episodes, desc="Training"):
         env.reset()
@@ -192,32 +258,52 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         episode_rewards.append(total_reward)
         episode_lengths.append(step + 1)
 
-        # Periodic greedy evaluation
+        # Periodic greedy evaluation and early stopping
         if (episode + 1) % eval_freq == 0:
-            agent.set_training(False)
-            eval_rewards = []
+            mean_eval, success_rate = run_greedy_evaluation(
+                space_path=grid_paths[0],
+                agent=agent,
+                max_steps=max_steps,
+                eval_episodes=eval_episodes,
+                obs_mode=obs_mode,
+                sensor_range=sensor_range,
+                agent_start=agent_start,
+                random_seed=random_seed,
+                reward_fn=reward_fn,
+            )
 
-            for _ in range(eval_episodes):
-                env.reset()
-                s = obs_builder.build(env.agent_pos)
-                ep_r = 0.0
-                for step in range(max_steps):
-                    a = agent.greedy_action(s)
-                    _, r, d, _ = env.step(a)
-                    s = obs_builder.build(env.agent_pos)
-                    ep_r += r
-                    if d:
-                        break
-                eval_rewards.append(ep_r)
-
-            agent.set_training(True)
-            mean_eval = np.mean(eval_rewards)
             print(
                 f"\nEpisode {episode + 1:4d} | "
                 f"Eval reward: {mean_eval:8.2f} | "
+                f"Success rate: {success_rate:.2f} | "
                 f"Train reward (last {eval_freq}): {np.mean(episode_rewards[-eval_freq:]):8.2f} | "
                 f"Epsilon: {agent.epsilon:.4f}"
             )
+
+            if early_stop:
+                if mean_eval <= MIN_EVAL_REWARD:
+                    early_stop_counter = 0
+
+                elif mean_eval > best_eval_reward + EARLY_STOP_DELTA:
+                    best_eval_reward = mean_eval
+                    early_stop_counter = 0
+
+                else:
+                    early_stop_counter += 1
+
+                print(
+                    f"Early stopping check: "
+                    f"{early_stop_counter}/{EARLY_STOP_PATIENCE} "
+                    f"(best eval reward: {best_eval_reward:.2f})"
+                )
+
+                if early_stop_counter >= EARLY_STOP_PATIENCE:
+                    print(
+                        f"\nEarly stopping triggered at episode {episode + 1}. "
+                        f"Greedy evaluation reward has converged."
+                    )
+                    stopped_early = True
+                    break
 
 
     print("\nTraining completed.")
@@ -249,6 +335,9 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     return {
         "episode_rewards":  episode_rewards,
         "episode_lengths":  episode_lengths,
+        "stopped_early": stopped_early,
+        "best_eval_reward": best_eval_reward,
+        "early_stop_counter": early_stop_counter,
         "final_epsilon":    agent.epsilon,
         "training_steps":   agent.training_step,
         **{f"eval_{k}": v for k, v in eval_stats.items()},
@@ -288,4 +377,5 @@ if __name__ == "__main__":
         save_path=save_path,
         experiment_name=experiment_name,
         save_model=args.save_model,
+        early_stop=args.early_stop,
     )

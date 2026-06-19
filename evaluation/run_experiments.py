@@ -185,6 +185,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             save_model           = Config.SAVE_MODELS,
             experiment_name      = f"exp_{exp_id:04d}",
             reward_fn            = REWARD_FUNCTIONS[experiment["reward_fn"]],
+            early_stop           = Config.EARLY_STOP,
         )
 
     elif agent == "ppo":
@@ -212,6 +213,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             save_model           = Config.SAVE_MODELS,
             experiment_name      = f"exp_{exp_id:04d}",
             reward_fn=REWARD_FUNCTIONS[experiment["reward_fn"]],
+            early_stop           = Config.EARLY_STOP,
         )
 
     results = results or {}
@@ -223,6 +225,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
         "agent":     experiment["agent"],
         "space":     experiment["space_path"].stem,
         "start_pos": str(experiment["start_pos"]),
+        "early_stop_enabled": Config.EARLY_STOP,
         **{k: v for k, v in experiment.items()
            if k not in ("agent", "space_path", "start_pos")},
         **results,

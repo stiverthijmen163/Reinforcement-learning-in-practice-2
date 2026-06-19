@@ -19,8 +19,8 @@ class Config:
         # "spaces/easy_space.pickle": {"start_pos": None},
         # "spaces/test_space.pickle": {"start_pos": None},
         # "spaces/restaurant_1_space.pickle": {"start_pos": None}, # 50*50 map
-        "spaces/restaurant_2_space.pickle": {"start_pos": None }
-        # "spaces/u_path_space.pickle": {"start_pos": None},
+        # "spaces/restaurant_2_space.pickle": {"start_pos": None }
+         "spaces/u_path_space.pickle": {"start_pos": None},
     }
     # "dqn" and, or "ppo"
     AGENTS = ["ppo"]
@@ -31,10 +31,10 @@ class Config:
 
     # Shared training parameters (used by both DQN and PPO)
     EPISODES      = [5000]  # TODO: set higher for real experiments
-    MAX_STEPS     = [500]
+    MAX_STEPS     = [200]
     LEARNING_RATES = [0.0001] # 0.001 for PPO worked okay
     GAMMAS        = [0.999]
-    BATCH_SIZES   = [64]
+    BATCH_SIZES   = [128]
 
     # Observation mode ("xy", "sensors", or "both")
     OBS_MODES = ["both"]
@@ -52,11 +52,11 @@ class Config:
     ROLLOUT_SIZES  = [512]
     GAE_LAMBDAS    = [0.99]
     CLIP_EPSILONS  = [0.2]
-    UPDATE_EPOCHS  = [4]
+    UPDATE_EPOCHS  = [32]
     REWARD_FNs = ["default"]
 
     # Evaluation parameters during training
-    EVAL_FREQ     = 100    # Run a greedy eval every N training episodes
+    EVAL_FREQ     = 50    # Run a greedy eval every N training episodes
     EVAL_EPISODES = 3    # Number of greedy episodes per eval checkpoint
 
     # Set SAVE_IMAGES = False to skip path/heatmap images
@@ -69,3 +69,7 @@ class Config:
     # Set VERBOSE = False to suppress all output from training scripts
     # and only show the progress bar from run_experiments.py itself
     VERBOSE = True
+    
+    # Set EARLY_STOP = True to evaluate a greedy policy on 0 stochasticity after every 50 episodes
+    # If the reward does not improve after 500 episodes and we find the target, stop training.
+    EARLY_STOP = True
