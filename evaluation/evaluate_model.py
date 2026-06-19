@@ -29,7 +29,8 @@ from world.environment import Environment
 
 def load_agent(model_path: Path):
     """Load a DQN or PPO agent from a .pt file"""
-    checkpoint = torch.load(model_path, weights_only=False)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    checkpoint = torch.load(model_path, weights_only=False, map_location=device)
     agent_type = checkpoint["agent_type"]
     if agent_type == "dqn":
         return DQNAgent.load(model_path)

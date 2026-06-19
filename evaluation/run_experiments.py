@@ -270,7 +270,7 @@ def main(sequential: bool = False) -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = Path("results") / "experiments" / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Results → {run_dir}\n")
+    print(f"Results -> {run_dir}\n")
 
     all_summaries: list[dict] = []
     all_curves:    list[dict] = []

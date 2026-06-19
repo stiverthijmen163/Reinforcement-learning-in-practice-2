@@ -305,7 +305,8 @@ class DQNAgent(BaseAgent):
     @classmethod
     def load(cls, path) -> 'DQNAgent':
         """Load a DQNAgent"""
-        checkpoint = torch.load(path, weights_only=False)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        checkpoint = torch.load(path, weights_only=False, map_location=device)
         agent = cls(
             n_actions   = checkpoint["W3"].shape[1],
             input_size  = checkpoint["W1"].shape[0],

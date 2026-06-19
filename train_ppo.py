@@ -288,6 +288,12 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
         episode_rewards.append(episode_reward)
         episode_lengths.append(step + 1)
 
+    # Move to CPU before eval and save so that evaluate_model (always CPU) reproduces
+    # the exact same result as GPU and CPU use different summation orders
+    # which can make Q values slightly different and cause differences in evaluation
+    agent.model.cpu()
+    agent.device = torch.device("cpu")
+
     eval_stats = Environment.evaluate_agent(
         space_fp=grid_paths[0],
         agent=agent,

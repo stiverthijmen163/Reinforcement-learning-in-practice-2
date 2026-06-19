@@ -232,7 +232,8 @@ class PPOAgent(BaseAgent):
     @classmethod
     def load(cls, path) -> 'PPOAgent':
         """Load saved PPOAgent"""
-        checkpoint = torch.load(path, weights_only=False)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        checkpoint = torch.load(path, weights_only=False, map_location=device)
         state_dict = checkpoint["state_dict"]
         agent = cls(
             state_dim  = state_dict["net.0.weight"].shape[1],
