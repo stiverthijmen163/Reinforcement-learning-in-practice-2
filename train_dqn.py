@@ -3,6 +3,7 @@
 This script trains a DQN agent to navigate a restaurant environment
 using continuous state representation with LiDAR sensors.
 """
+import random
 import sys
 from argparse import ArgumentParser
 from datetime import datetime
@@ -93,6 +94,8 @@ def run_greedy_evaluation(
     eval_rewards = []
     successes = []
 
+    rng_state = random.getstate()
+
     old_training = getattr(agent, "training", None)
 
     if hasattr(agent, "set_training"):
@@ -131,6 +134,8 @@ def run_greedy_evaluation(
 
     if old_training is not None and hasattr(agent, "set_training"):
         agent.set_training(old_training)
+
+    random.setstate(rng_state)
 
     return float(np.mean(eval_rewards)), float(np.mean(successes))
 
