@@ -194,35 +194,33 @@ def plot_convergence(results_df, curves_df, out_dir, obs_mode_override=None, sho
         return
 
     sigmas = sorted(results_df["sigma"].unique())
-    sigma_linestyles = ["solid", "dashed", "dotted"]
+    sigma_colors = plt.cm.tab10.colors
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    legend_handles = []
+    agents = sorted(results_df["agent"].unique())
+    fig, axes = plt.subplots(1, len(agents), figsize=(7 * len(agents), 5))
+    if len(agents) == 1:
+        axes = [axes]
 
-    for agent in sorted(results_df["agent"].unique()):
+    for ax, agent in zip(axes, agents):
         obs_mode = obs_mode_override or best_obs_mode_for(results_df, agent)
-
-        for sigma, linestyle in zip(sigmas, sigma_linestyles):
+        for sigma, color in zip(sigmas, sigma_colors):
             row = get_experiment(results_df, agent, obs_mode, sigma)
             if row is None:
                 continue
-
             episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
             if episode_data.empty:
                 continue
-
             smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
-            line, = ax.plot(np.arange(len(smoothed)), smoothed,
-                            color=AGENT_COLORS[agent], linestyle=linestyle, linewidth=1.5)
-            legend_handles.append((line, f"{agent.upper()} — σ={sigma} ({obs_mode})"))
+            ax.plot(np.arange(len(smoothed)), smoothed,
+                    color=color, linewidth=1.5, label=f"σ={sigma} ({obs_mode})")
+        ax.legend(fontsize=9)
+        ax.set_xlabel("Episode")
+        ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
+        ax.set_title(f"{agent.upper()} convergence by sigma")
+        ax.grid(linestyle="--", alpha=0.3)
+        if show_episodes_until is not None:
+            ax.set_xlim(0, show_episodes_until)
 
-    ax.legend([h for h, _ in legend_handles], [lbl for _, lbl in legend_handles], fontsize=9)
-    ax.set_xlabel("Episode")
-    ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
-    ax.set_title("Training convergence by sigma  (best obs_mode per agent)")
-    ax.grid(linestyle="--", alpha=0.3)
-    if show_episodes_until is not None:
-        ax.set_xlim(0, show_episodes_until)
     fig.tight_layout()
     fig.savefig(out_dir / "convergence_sigma.pdf", bbox_inches="tight")
     plt.close(fig)
@@ -231,31 +229,32 @@ def plot_convergence(results_df, curves_df, out_dir, obs_mode_override=None, sho
 
 def plot_convergence_obs_modes(results_df, curves_df, out_dir, show_episodes_until=None):
     """Smoothed training reward over episodes for best run per (agent, obs_mode) combination"""
-    fig, ax = plt.subplots(figsize=(10, 5))
-    legend_handles = []
+    agents = sorted(results_df["agent"].unique())
+    fig, axes = plt.subplots(1, len(agents), figsize=(7 * len(agents), 5))
+    if len(agents) == 1:
+        axes = [axes]
 
-    for agent in sorted(results_df["agent"].unique()):
-        for obs_mode, linestyle in OBS_LINESTYLES.items():
+    obs_mode_colors = {obs_mode: color for obs_mode, color in zip(OBS_LINESTYLES, plt.cm.tab10.colors)}
+
+    for ax, agent in zip(axes, agents):
+        for obs_mode in OBS_LINESTYLES:
             row = get_best_experiment(results_df, agent, obs_mode)
             if row is None:
                 continue
-
             episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
             if episode_data.empty:
                 continue
-
             smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
-            line, = ax.plot(np.arange(len(smoothed)), smoothed,
-                            color=AGENT_COLORS[agent], linestyle=linestyle, linewidth=1.5)
-            legend_handles.append((line, f"{agent.upper()} — {obs_mode}"))
+            ax.plot(np.arange(len(smoothed)), smoothed,
+                    color=obs_mode_colors[obs_mode], linewidth=1.5, label=obs_mode)
+        ax.legend(fontsize=9)
+        ax.set_xlabel("Episode")
+        ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
+        ax.set_title(f"{agent.upper()} convergence by obs_mode")
+        ax.grid(linestyle="--", alpha=0.3)
+        if show_episodes_until is not None:
+            ax.set_xlim(0, show_episodes_until)
 
-    ax.legend([h for h, _ in legend_handles], [lbl for _, lbl in legend_handles], fontsize=9)
-    ax.set_xlabel("Episode")
-    ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
-    ax.set_title("Training convergence by obs_mode  (best run per obs_mode)")
-    ax.grid(linestyle="--", alpha=0.3)
-    if show_episodes_until is not None:
-        ax.set_xlim(0, show_episodes_until)
     fig.tight_layout()
     fig.savefig(out_dir / "convergence_obs_modes.pdf", bbox_inches="tight")
     plt.close(fig)
