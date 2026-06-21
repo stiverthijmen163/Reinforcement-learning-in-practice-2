@@ -187,7 +187,7 @@ def plot_paths_sigma(results_df, run_dir, out_dir, space_path, obs_mode_override
     print(f"  Saved paths_sigma.pdf")
 
 
-def plot_convergence(results_df, curves_df, out_dir, obs_mode_override=None):
+def plot_convergence(results_df, curves_df, out_dir, obs_mode_override=None, show_episodes_until=None):
     """(Smoothed) training reward over episodes, best obs_mode per agent, for different sigmas"""
     if curves_df is None or curves_df.empty:
         print("  No training curves found, skipping.")
@@ -221,13 +221,15 @@ def plot_convergence(results_df, curves_df, out_dir, obs_mode_override=None):
     ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
     ax.set_title("Training convergence by sigma  (best obs_mode per agent)")
     ax.grid(linestyle="--", alpha=0.3)
+    if show_episodes_until is not None:
+        ax.set_xlim(0, show_episodes_until)
     fig.tight_layout()
     fig.savefig(out_dir / "convergence_sigma.pdf", bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved convergence_sigma.pdf")
 
 
-def main(run_dir_arg, obs_mode_override=None):
+def main(run_dir_arg, obs_mode_override=None, show_episodes_until=None):
     run_dir = Path(run_dir_arg)
     out_dir = run_dir / "analysis"
     out_dir.mkdir(exist_ok=True)
@@ -254,7 +256,7 @@ def main(run_dir_arg, obs_mode_override=None):
     plot_paths_sigma(results_df, run_dir, out_dir, space_path, obs_mode_override)
 
     print("\nGenerating convergence plot...")
-    plot_convergence(results_df, curves_df, out_dir, obs_mode_override)
+    plot_convergence(results_df, curves_df, out_dir, obs_mode_override, show_episodes_until)
 
     print(f"\nAll outputs saved in: {out_dir}")
 
@@ -264,5 +266,7 @@ if __name__ == "__main__":
     parser.add_argument("run_dir", help="Path to experiment run directory")
     parser.add_argument("--obs_mode", default=None, choices=["xy", "sensors", "both"],
                         help="Override obs_mode for sigma/convergence plots (default: best per agent)")
+    parser.add_argument("--show_episodes_until", type=int, default=None,
+                        help="Clip the convergence plot x-axis at this episode number (default: show all)")
     args = parser.parse_args()
-    main(args.run_dir, obs_mode_override=args.obs_mode)
+    main(args.run_dir, obs_mode_override=args.obs_mode, show_episodes_until=args.show_episodes_until)
