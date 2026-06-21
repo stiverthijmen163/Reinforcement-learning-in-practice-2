@@ -95,7 +95,9 @@ class Environment:
             "total_agent_moves": 0,
             "total_failed_moves": 0,
             "total_targets_reached": 0,
-            "total_collision": 0
+            "total_collision": 0,
+            "agent_path": [],
+            "collision_path": []
         }
 
 
@@ -390,5 +392,8 @@ class Environment:
             )
             out_dir = Path("results/") if not save_path else save_path
             heatmap_plot.savefig(out_dir / f"{file_name}_heatmap.pdf")
+
+        env.world_stats["agent_path"] = agent_path
+        env.world_stats["collision_path"] = collision_path
 
         return dict(env.world_stats)  # Return stats so it can be used in evaluation

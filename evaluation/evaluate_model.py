@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "world"))
 from agents.dqn_agent import DQNAgent
 from agents.ppo_agent import PPOAgent
 from world.environment import Environment
+import os
 
 
 def load_agent(model_path: Path):
@@ -68,7 +69,7 @@ def evaluate_model(
         space_fp = space_path,
         agent = agent,
         max_steps = max_steps,
-        sigma = sigma,
+        sigma = 0.,
         agent_start_pos = agent_start,
         random_seed = random_seed,
         save_path = save_path,
@@ -113,24 +114,32 @@ if __name__ == "__main__":
         save_path.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    save_name = f"{args.model_path.stem}_{timestamp}"
+    # save_name = f"{args.model_path.stem}_{timestamp}"
 
     print(f"Model : {args.model_path}")
     print(f"Space : {args.space_path}")
     print(f"sigma={args.sigma}  max_steps={args.max_steps}\n")
 
-    stats = evaluate_model(
-        model_path   = args.model_path,
-        space_path   = args.space_path,
-        sensor_range = args.sensor_range,
-        max_steps    = args.max_steps,
-        sigma        = args.sigma,
-        start_pos    = args.start_pos,
-        random_seed  = args.random_seed,
-        save_image   = save_image,
-        save_path    = save_path,
-        save_name    = save_name,
-    )
+    if args.model_path.is_file():
+        model_paths = [args.model_path]
+        save_names = [f"{str(args.model_path).split('/')[-1][:-3]}"]
+    else:
+        model_paths = [Path(os.path.join(str(args.model_path), f)) for f in os.listdir(str(args.model_path))]
+        save_names = [f"{os.path.basename(f)}" for f in model_paths]
 
-    for k, v in stats.items():
-        print(f"  {k}: {v}")
+    for model_path, save_name in zip(model_paths, save_names):
+        stats = evaluate_model(
+            model_path   = model_path,
+            space_path   = args.space_path,
+            sensor_range = args.sensor_range,
+            max_steps    = args.max_steps,
+            sigma        = args.sigma,
+            start_pos    = args.start_pos,
+            random_seed  = args.random_seed,
+            save_image   = save_image,
+            save_path    = save_path,
+            save_name    = save_name,
+        )
+
+        for k, v in stats.items():
+            print(f"  {k}: {v}")

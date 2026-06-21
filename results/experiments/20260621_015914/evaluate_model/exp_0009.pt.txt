@@ -1,0 +1,9 @@
+cumulative_reward: -250
+total_steps: 250
+total_agent_moves: 250
+total_failed_moves: 0
+total_targets_reached: 0
+total_collision: 0
+agent_path: []
+collision_path: []
+targets_remaining: 1

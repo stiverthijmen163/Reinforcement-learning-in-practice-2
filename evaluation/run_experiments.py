@@ -25,7 +25,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from itertools import product
-from pathlib import Path
+from pathlib import Path, WindowsPath
 
 import pandas as pd
 from tqdm import tqdm
@@ -143,7 +143,7 @@ def build_experiments() -> list[dict]:
 
 ### Single experiment runner
 
-def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, list[dict]]:
+def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, list[dict], list[dict], list[dict]]:
     """Train and evaluate one agent config
 
     Returns:
@@ -164,7 +164,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             no_gui               = True,
             sigma                = experiment["sigma"],
             fps                  = 30,
-            random_seed          = Config.RANDOM_SEED,
+            random_seed          = experiment["seed"],
             start_pos            = start_pos,
             episodes             = experiment["episodes"],
             max_steps            = experiment["max_steps"],
@@ -194,7 +194,7 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
             no_gui               = True,
             sigma                = experiment["sigma"],
             fps                  = 30,
-            random_seed          = Config.RANDOM_SEED,
+            random_seed          = experiment["seed"],
             start_pos            = start_pos,
             episodes             = experiment["episodes"],
             max_steps            = experiment["max_steps"],
@@ -219,6 +219,8 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
     results = results or {}
     episode_rewards = results.pop("episode_rewards", [])
     episode_lengths = results.pop("episode_lengths", [])
+    agent_path = results.pop("eval_agent_path", [])
+    collision_path = results.pop("eval_collision_path", [])
 
     summary_row = {
         "exp_id":    exp_id,
@@ -243,7 +245,30 @@ def run_experiment(experiment: dict, run_dir: Path, exp_id: int) -> tuple[dict, 
         for ep, reward in enumerate(episode_rewards)
     ]
 
-    return summary_row, curve_rows
+    agent_path_rows = [
+        {
+            "exp_id":         exp_id,
+            "agent":          experiment["agent"],
+            "space":          experiment["space_path"].stem,
+            "step":        step,
+            "loc_x": loc[0],
+            "lox_y": loc[1]
+        }
+        for step, loc in enumerate(agent_path)
+    ]
+
+    collision_rows = [
+        {
+            "exp_id":         exp_id,
+            "agent":          experiment["agent"],
+            "space":          experiment["space_path"].stem,
+            "step":        step,
+            "collided": collided,
+        }
+        for step, collided in enumerate(collision_path)
+    ]
+
+    return summary_row, curve_rows, agent_path_rows, collision_rows
 
 
 ### Parallel worker (runs in subprocess)
@@ -261,8 +286,129 @@ def _worker(args: tuple) -> tuple[dict, list[dict]]:
 ### Main function
 
 def main(sequential: bool = False) -> None:
-    experiments = build_experiments()
-    print(experiments)
+    # experiments = build_experiments()
+    experiments = [
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 0},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.1,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 0},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.3,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 0},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'xy',
+         'reward_fn': 'default', "seed": 0},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'sensors',
+         'reward_fn': 'default', "seed": 0},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 42},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.1,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 42},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.3,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 42},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'xy',
+         'reward_fn': 'default', "seed": 42},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'sensors',
+         'reward_fn': 'default', "seed": 42},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 123},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.1,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 123},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.3,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'both',
+         'reward_fn': 'default', "seed": 123},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'xy',
+         'reward_fn': 'default', "seed": 123},
+        {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,
+         'rollout_size': 512, 'gae_lambda': 0.99, 'clip_epsilon': 0.2, 'update_epochs': 4, 'obs_mode': 'sensors',
+         'reward_fn': 'default', "seed": 123},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 0},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.1,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 0},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.3,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 0},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'xy', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 0},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'sensors', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 0},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 42},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.1,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 42},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.3,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 42},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'xy', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 42},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'sensors', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 42},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 123},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.1,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 123},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.3,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'both', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 123},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'xy', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 123},
+        {'agent': 'dqn', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
+         'episodes': 3000, 'max_steps': 500, 'learning_rate': 0.001, 'gamma': 0.98, 'batch_size': 64,
+         'replay_capacity': 50000, 'target_update_freq': 500, 'epsilon': 1.0, 'min_epsilon': 0.02,
+         'epsilon_anneal_steps': 250000, 'obs_mode': 'sensors', 'reward_scale': 100.0, 'reward_fn': 'dqn', "seed": 123},
+    ]
     n = len(experiments)
     print(f"Built {n} experiments")
     print(f"Images: {'enabled' if Config.SAVE_IMAGES else 'disabled'} "
@@ -277,6 +423,8 @@ def main(sequential: bool = False) -> None:
 
     all_summaries: list[dict] = []
     all_curves:    list[dict] = []
+    all_paths:     list[dict] = []
+    all_colls:     list[dict] = []
 
     if sequential:
         for i, exp in enumerate(experiments):
@@ -286,9 +434,11 @@ def main(sequential: bool = False) -> None:
             # So this feels cleaner
             with contextlib.redirect_stdout(open(os.devnull, "w", encoding="utf-8") if not Config.VERBOSE else sys.stdout), \
                  contextlib.redirect_stderr(open(os.devnull, "w", encoding="utf-8") if not Config.VERBOSE else sys.stderr):
-                summary, curves = run_experiment(exp, run_dir, i)
+                summary, curves, agent_path, coll_path = run_experiment(exp, run_dir, i)
             all_summaries.append(summary)
             all_curves.extend(curves)
+            all_paths.extend(agent_path)
+            all_colls.extend(coll_path)
     else:
         # run in parallel using ProcessPoolExecutor. Each worker runs one experiment and returns its summary + curves
         # This speeds things up a lot!
@@ -297,9 +447,11 @@ def main(sequential: bool = False) -> None:
             futures = {executor.submit(_worker, arg): arg[0] for arg in worker_args}
             for future in tqdm(as_completed(futures), total=n, desc="Experiments"):
                 try:
-                    summary, curves = future.result()
+                    summary, curves, agent_path, coll_path = future.result()
                     all_summaries.append(summary)
                     all_curves.extend(curves)
+                    all_paths.extend(agent_path)
+                    all_colls.extend(coll_path)
                 except Exception as exc:
                     idx = futures[future]
                     print(f"\nExperiment {idx} failed: {exc}")
@@ -313,6 +465,14 @@ def main(sequential: bool = False) -> None:
         curves_df = pd.DataFrame(all_curves)
         curves_df.to_csv(run_dir / "training_curves.csv", index=False)
         print(f"Saved training_curves.csv     ({len(curves_df)} rows)")
+
+    all_paths_df = pd.DataFrame(all_paths)
+    all_paths_df.to_csv(run_dir / "agent_paths.csv", index=False)
+    print(f"Saved agent_paths.csv  ({len(all_paths_df)} rows)")
+
+    all_colls_df = pd.DataFrame(all_colls)
+    all_colls_df.to_csv(run_dir / "collisions.csv", index=False)
+    print(f"Saved collisions.csv  ({len(all_colls_df)} rows)")
 
     print(f"\nAnalyze with:")
     print(f"  python -m evaluation.analyze_results {run_dir}")
