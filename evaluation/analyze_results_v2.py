@@ -70,9 +70,9 @@ def get_path(model_path, space_path, max_steps, sigma, random_seed=0, sensor_ran
 
 
 def best_obs_mode_for(results_df, agent):
-    """Return obs_mode with highest mean eval_cumulative_reward for an agent"""
+    """Return obs_mode of the single best-performing experiment for this agent."""
     agent_df = results_df[results_df["agent"] == agent]
-    return agent_df.groupby("obs_mode")["eval_cumulative_reward"].mean().idxmax()
+    return agent_df.loc[agent_df["eval_cumulative_reward"].idxmax(), "obs_mode"]
 
 
 def get_experiment(results_df, agent, obs_mode, sigma):
@@ -82,6 +82,8 @@ def get_experiment(results_df, agent, obs_mode, sigma):
         (results_df["obs_mode"] == obs_mode) &
         np.isclose(results_df["sigma"], sigma)
     ]
+    if matches.empty:
+        return None
     return matches.loc[matches["eval_cumulative_reward"].idxmax()]
 
 
