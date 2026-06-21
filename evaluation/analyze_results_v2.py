@@ -137,7 +137,7 @@ def plot_paths_obs_modes(results_df, run_dir, out_dir, space_path):
     fig.tight_layout()
     fig.savefig(out_dir / "paths_obs_modes.pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"  Saved paths_obs_modes.pdf")
+    print(f"Saved paths_obs_modes.pdf")
 
 
 def plot_paths_sigma(results_df, run_dir, out_dir, space_path, obs_mode_override=None):
@@ -178,19 +178,19 @@ def plot_paths_sigma(results_df, run_dir, out_dir, space_path, obs_mode_override
     obs_label = ", ".join(f"{a.upper()}={m}" for a, m in obs_modes_used.items())
 
     ax.legend([h for h, _ in legend_handles], [lbl for _, lbl in legend_handles], fontsize=9)
-    ax.set_title(f"Path by sigma  (obs_mode: {obs_label})")
+    ax.set_title(f"Path by sigma (obs_mode: {obs_label})")
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     fig.tight_layout()
     fig.savefig(out_dir / "paths_sigma.pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"  Saved paths_sigma.pdf")
+    print(f"Saved paths_sigma.pdf")
 
 
 def plot_convergence(results_df, curves_df, out_dir, obs_mode_override=None, show_episodes_until=None):
     """(Smoothed) training reward over episodes, best obs_mode per agent, for different sigmas"""
     if curves_df is None or curves_df.empty:
-        print("  No training curves found, skipping.")
+        print("No training curves found, skipping.")
         return
 
     sigmas = sorted(results_df["sigma"].unique())
@@ -226,7 +226,40 @@ def plot_convergence(results_df, curves_df, out_dir, obs_mode_override=None, sho
     fig.tight_layout()
     fig.savefig(out_dir / "convergence_sigma.pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"  Saved convergence_sigma.pdf")
+    print(f"Saved convergence_sigma.pdf")
+
+
+def plot_convergence_obs_modes(results_df, curves_df, out_dir, show_episodes_until=None):
+    """Smoothed training reward over episodes for best run per (agent, obs_mode) combination"""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    legend_handles = []
+
+    for agent in sorted(results_df["agent"].unique()):
+        for obs_mode, linestyle in OBS_LINESTYLES.items():
+            row = get_best_experiment(results_df, agent, obs_mode)
+            if row is None:
+                continue
+
+            episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
+            if episode_data.empty:
+                continue
+
+            smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
+            line, = ax.plot(np.arange(len(smoothed)), smoothed,
+                            color=AGENT_COLORS[agent], linestyle=linestyle, linewidth=1.5)
+            legend_handles.append((line, f"{agent.upper()} — {obs_mode}"))
+
+    ax.legend([h for h, _ in legend_handles], [lbl for _, lbl in legend_handles], fontsize=9)
+    ax.set_xlabel("Episode")
+    ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
+    ax.set_title("Training convergence by obs_mode  (best run per obs_mode)")
+    ax.grid(linestyle="--", alpha=0.3)
+    if show_episodes_until is not None:
+        ax.set_xlim(0, show_episodes_until)
+    fig.tight_layout()
+    fig.savefig(out_dir / "convergence_obs_modes.pdf", bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved convergence_obs_modes.pdf")
 
 
 def main(run_dir_arg, obs_mode_override=None, show_episodes_until=None):
@@ -239,8 +272,8 @@ def main(run_dir_arg, obs_mode_override=None, show_episodes_until=None):
         raise FileNotFoundError(f"experiment_results.csv not found in {run_dir}")
 
     results_df = pd.read_csv(results_csv)
-    curves_csv  = run_dir / "training_curves.csv"
-    curves_df   = pd.read_csv(curves_csv) if curves_csv.exists() else None
+    curves_csv = run_dir / "training_curves.csv"
+    curves_df = pd.read_csv(curves_csv) if curves_csv.exists() else None
 
     print(f"Loaded {len(results_df)} experiments from {run_dir}")
 
@@ -255,8 +288,11 @@ def main(run_dir_arg, obs_mode_override=None, show_episodes_until=None):
     print("\nGenerating paths by sigma...")
     plot_paths_sigma(results_df, run_dir, out_dir, space_path, obs_mode_override)
 
-    print("\nGenerating convergence plot...")
+    print("\nGenerating convergence by sigma plot...")
     plot_convergence(results_df, curves_df, out_dir, obs_mode_override, show_episodes_until)
+
+    print("\nGenerating convergence by obs_mode plot...")
+    plot_convergence_obs_modes(results_df, curves_df, out_dir, show_episodes_until)
 
     print(f"\nAll outputs saved in: {out_dir}")
 
