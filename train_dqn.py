@@ -146,7 +146,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
          save_path=None, save_image=True, experiment_name=None, reward_scale=None,
-         save_model=False, reward_fn = None, early_stop=False,):
+         save_model=False, reward_fn = None, early_stop=False,
+         start_pos_pool=None):
     """Main training loop.
 
     Extra params for run_experiments.py:
@@ -236,7 +237,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     stopped_early = False
 
     for episode in trange(episodes, desc="Training"):
-        env.reset()
+        episode_start = start_pos_pool[episode % len(start_pos_pool)] if start_pos_pool else agent_start
+        env.reset(agent_start_pos=episode_start)
         all_training_positions.append(env.agent_pos)
         state = obs_builder.build(env.agent_pos)
         total_reward = 0.0

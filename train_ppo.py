@@ -259,7 +259,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          eval_freq, eval_episodes,
          obs_mode="both", sensor_range=10.0,
          save_path=None, save_image=True, experiment_name=None,
-         save_model=False, reward_fn=None, early_stop=False):
+         save_model=False, reward_fn=None, early_stop=False,
+         start_pos_pool=None):
     """PPO training loop compatible with run_experiments.py.
 
     Returns a dict with episode_rewards, episode_lengths, and eval_* metrics.
@@ -318,7 +319,8 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
     all_training_positions = []
 
     for episode in trange(episodes, desc="PPO Training"):
-        env.reset(agent_start_pos=agent_start)
+        episode_start = start_pos_pool[episode % len(start_pos_pool)] if start_pos_pool else agent_start
+        env.reset(agent_start_pos=episode_start)
         obs = obs_builder.build(env.agent_pos)
         all_training_positions.append(env.agent_pos)
 
