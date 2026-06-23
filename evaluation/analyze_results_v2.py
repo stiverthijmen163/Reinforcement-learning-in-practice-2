@@ -261,6 +261,72 @@ def plot_convergence_obs_modes(results_df, curves_df, out_dir, show_episodes_unt
     print(f"Saved convergence_obs_modes.pdf")
 
 
+def plot_convergence_combined(results_df, curves_df, out_dir, obs_mode_override=None, show_episodes_until=None) -> None:
+    """Combined convergence plot showing both sigma and obs_mode effects."""
+    if curves_df is None or curves_df.empty:
+        print("No training curves found, skipping.")
+        return
+
+    sigmas = sorted(results_df["sigma"].unique())
+    sigma_colors = plt.cm.tab10.colors
+    obs_mode_colors = {obs_mode: color for obs_mode, color in zip(OBS_LINESTYLES, plt.cm.tab10.colors[len(sigmas):])}
+
+    agents = sorted(results_df["agent"].unique())
+    fig, axes = plt.subplots(1, len(agents), figsize=(20, 5))
+    if len(agents) == 1:
+        axes = [axes]
+
+    rows = []
+    agents_max = {}
+    for agent in agents:
+        agents_max[agent] = 0
+
+    for ax, agent in zip(axes, agents):
+        for obs_mode in OBS_LINESTYLES:
+            row = get_best_experiment(results_df, agent, obs_mode)
+            rows.append((agent, row["sigma"], obs_mode))
+            if row is None:
+                continue
+            episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
+            if episode_data.empty:
+                continue
+            smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
+            if max(np.arange(len(smoothed))) > agents_max[agent]:
+                agents_max[agent] = max(np.arange(len(smoothed)))
+            ax.plot(np.arange(len(smoothed)), smoothed,
+                    color=obs_mode_colors[obs_mode], linewidth=1.0, label=f"σ={row['sigma']} ({obs_mode})", alpha=0.5)
+
+    for ax, agent in zip(axes, agents):
+        obs_mode = obs_mode_override or best_obs_mode_for(results_df, agent)
+        for sigma, color in zip(sigmas, sigma_colors):
+            row = get_experiment(results_df, agent, obs_mode, sigma)
+            if (agent, row["sigma"], obs_mode) in rows:
+                continue
+            if row is None:
+                continue
+            episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
+            if episode_data.empty:
+                continue
+            smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
+            if max(np.arange(len(smoothed))) > agents_max[agent]:
+                agents_max[agent] = max(np.arange(len(smoothed)))
+            ax.plot(np.arange(len(smoothed)), smoothed,
+                    color=color, linewidth=1.0, label=f"σ={sigma} ({obs_mode})", alpha=0.5)
+        ax.legend(fontsize=12)
+        ax.set_xlabel("Episode")
+        ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
+        ax.set_title(f"{agent.upper()} convergence by obs_mode and sigma", fontsize=14)
+        ax.grid(linestyle="--", alpha=0.3)
+        if show_episodes_until is not None:
+            ax.set_xlim(0, show_episodes_until)
+        else:
+            ax.set_xlim(0, agents_max[agent])
+
+    fig.tight_layout()
+    fig.savefig(out_dir / "convergence_combined.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
 def main(run_dir_arg, obs_mode_override=None, show_episodes_until=None):
     run_dir = Path(run_dir_arg)
     out_dir = run_dir / "analysis"
@@ -292,6 +358,9 @@ def main(run_dir_arg, obs_mode_override=None, show_episodes_until=None):
 
     print("\nGenerating convergence by obs_mode plot...")
     plot_convergence_obs_modes(results_df, curves_df, out_dir, show_episodes_until)
+
+    print("\nGenerating combined convergence plot...")
+    plot_convergence_combined(results_df, curves_df, out_dir, obs_mode_override, show_episodes_until)
 
     print(f"\nAll outputs saved in: {out_dir}")
 
