@@ -7,7 +7,7 @@ This is the repository containing the challenge environment code.
 1. Create a virtual environment for this course with Python >= 3.10. Using conda, you can do: `conda create -n dic2025 python=3.11`. Use `conda activate dic2025` to activate it `conda deactivate` to deactivate it.
 2. Clone this repository into the local directory you prefer `git clone https://github.com/RL-In-Practice/2AMC15-2026.git`.
 3. Install the required packages `pip install -r requirements.txt`. Now, you are ready to use the simulation environment! :partying_face:	
-4. Run `$ python train.py grid_configs/example_grid.npy` to start training!
+4. Run `$ python train.py spaces/easy_space.pickle` to start training!
 
 `train.py` is just an example training script. Inside this file, initialize the agent you want to train and evaluate. Feel free to modify it as necessary. Its usage is:
 
@@ -66,23 +66,13 @@ Check out the benchmark agents to see examples.
 
 ### The `world` module
 
-The world module contains:
-1. `grid_creator.py`
-2. `environment.py`
-3. `grid.py`
-4. `gui.py`
-
-#### Grid creator
-Run this file to create new grids.
-
-```bash
-$ python grid_creator.py
-```
-
-This will start up a web server where you create new grids, of different sizes with various elements arrangements.
-To view the grid creator itself, go to `127.0.0.1:5000`.
-All levels will be saved to the `grid_configs/` directory.
-
+The world module contains the environment itself:
+- `space.py` — defines a room layout (bounds, obstacles, start, target) and saves/loads it as a `.pickle` file
+- `environment.py` — the `Environment` class the agent acts in
+- `state.py` — builds the agent's observation (`xy`, LiDAR `sensors`, or `both`)
+- `helpers.py` — actions, collision checks, and other geometry helpers
+- `debug_viewer.py` — live pygame visualization (see Debug Viewer below)
+- `create_*_space.py` — scripts that build the space files under `spaces/`
 
 #### The Environment
 
@@ -98,16 +88,6 @@ The main interaction with `Environment` is through the methods:
 
 [^1]: In case you missed it, this sentence is a joke. Please do not write all your code in the `Environment` class.
 
-#### The Grid
-
-The `Grid` class is the the actual representation of the world on which the agent moves. It is a 2D Numpy array.
-
-#### The GUI
-
-The Graphical User Interface provides a way for you to actually see what the RL agent is doing.
-While performant and written using PyGame, it is still about 1300x slower than not running a GUI.
-Because of this, we recommend using it only while testing/debugging and not while training.
-
 ## Running Agents and Experiments
 
 Below are example commands for running each implemented agent script.
@@ -117,8 +97,35 @@ Below are example commands for running each implemented agent script.
 Train a single DQN agent on a space:
 
 ```bash
-python train_dqn.py spaces/easy_space.pickle --no_gui --episodes 1000 --sigma 0.1
+python train_dqn.py spaces/easy_space.pickle --episodes 1000 --sigma 0.1
 ```
+
+The agent can observe its `xy` position, 8 LiDAR-style sensor readings, or both (`--obs_mode`). Some other useful flags:
+
+- `--obs_mode {xy,sensors,both}` — state of the agent, what it observes
+- `--gui` — open the live debug viewer while training (see below)
+- `--save_model` — save the trained weights after training
+- `--early_stop` — stop once the greedy evaluation reward has converged
+
+### Debug Viewer
+
+Pass `--gui` to `train_dqn.py` to open a live pygame window while training:
+
+```bash
+python train_dqn.py spaces/easy_space.pickle --gui
+```
+
+It shows the agent's path, its LiDAR rays, and a HUD with episode/step/reward/epsilon. Controls: `Space` pause/resume, `T`/`C` auto-pause on target reached / on collision, `← →` scrub back through recent steps, drag the speed slider to change fps.
+
+### Inspecting Spaces
+
+Print the contents of every space file in `spaces/` and view them side by side:
+
+```bash
+python spaces/inspect_spaces.py
+```
+
+For each space it prints the bounds, start position, target position, and obstacle list, and opens a matplotlib window with one panel per space.
 
 ---
 
@@ -161,4 +168,20 @@ Output is saved to `results/experiments/<timestamp>/analysis/`:
 - `effect_<param>.png` — bar charts showing how each varying hyperparameter affects eval metrics
 - `training_curves_<param>_<agent>_<space>.png` — mean training curves with ± std band per parameter value
 - `best_configs.csv` — best-performing config per (agent, space) combination
+
+### 4. Symmetric Ablation — `evaluation/run_symmetric_ablation.py`, `aggregate_eval.py`, `plot_eval.py`
+
+A symmetric room (`symmetric_2_space.pickle`) has two mirrored starting positions. An agent using only the LiDAR `sensors` observation can't tell the two starts apart, since the readings look identical from both sides. This checks whether that actually breaks the agent, by comparing it against `obs_mode="both"`, which can tell the difference.
+
+Train all agent/obs_mode combinations for the ablation, alternating training episodes between the two mirrored starts:
+
+```bash
+python -m evaluation.run_symmetric_ablation --run --space spaces/symmetric_2_space.pickle --run-dir results/experiments/symmetric_ablation_2
+```
+
+Run without `--run` first to see the planned experiments without training anything. `evaluation/aggregate_eval.py` then evaluates a saved model from both starting positions (and multiple seeds) and collects the results, success rate, steps to goal, full paths, into a DataFrame. `evaluation/plot_eval.py` plots those trajectories on top of the room so you can see by eye whether the agent reaches the target from both starts:
+
+```bash
+python -m evaluation.plot_eval
+```
 
