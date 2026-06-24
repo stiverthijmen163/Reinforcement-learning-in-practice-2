@@ -6,7 +6,7 @@ Usage:
 
 Examples:
     python -m evaluation.evaluate_model results/saved_models/dqn_20260617.pt spaces/u_path_space.pickle
-    python -m evaluation.evaluate_model results/saved_models/dqn_20260617.pt spaces/u_path_space.pickle --save_image --start_pos 5.0,6.0
+    python -m evaluation.evaluate_model results/saved_models/dqn_20260617.pt spaces/u_path_space.pickle --start_pos 5.0,6.0
 
 Agent type and obs_mode are read automatically from the saved model file
 
@@ -122,10 +122,10 @@ if __name__ == "__main__":
 
     if args.model_path.is_file():
         model_paths = [args.model_path]
-        save_names = [f"{str(args.model_path).split('/')[-1][:-3]}"]
+        save_names = [args.model_path.stem]
     else:
         model_paths = [Path(os.path.join(str(args.model_path), f)) for f in os.listdir(str(args.model_path))]
-        save_names = [f"{os.path.basename(f)}" for f in model_paths]
+        save_names = [Path(f).stem for f in model_paths]
 
     for model_path, save_name in zip(model_paths, save_names):
         stats = evaluate_model(
