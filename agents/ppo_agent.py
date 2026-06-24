@@ -1,3 +1,8 @@
+"""PPO agent implementation.
+
+The agent is designed for a continuous observation space and a discrete action space.
+For our robot task, the policy outputs a distribution over the movement actions.
+"""
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,10 +12,16 @@ from agents.base_agent import BaseAgent
 
 
 class PPOModel(nn.Module):
+    """Actor-critic neural network used by PPO.
+    The first part of the network is shared between actor and critic.
+    The actor head outputs action logits.
+    The critic head outputs the state-value estimate V(s).
+    """
     def __init__(self, state_dim, action_dim, hidden_dim=64):
         super().__init__()
         
-        # We can change this setup. I used the one in the PPO paper from the lecture for now
+        # Neural network architecture as described in the paper: "Proximal Policy Optimization Algorithms"
+        # Tanh activations keep hidden activations bounded, which can help PPO stability.
         self.net = nn.Sequential(
             nn.Linear(state_dim, hidden_dim),
             nn.Tanh(),
@@ -18,10 +29,14 @@ class PPOModel(nn.Module):
             nn.Tanh(),
         )
 
+        # Actor: produces one logit for each discrete action
         self.actor = nn.Linear(hidden_dim, action_dim)
+        
+        # Critic: estimates V(s), the expected return from the current state
         self.critic = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
+        """Return action logits and value estimate for a batch of states"""
         x = self.net(x)
 
         action_logits = self.actor(x)
@@ -31,6 +46,11 @@ class PPOModel(nn.Module):
 
 
 class PPOAgent(BaseAgent):
+    """PPO agent with rollout-based learning
+
+    First stores a rollout of transitions,
+    then performs several minibatch updates using the PPO clipped objective
+    """
     def __init__(
         self,
         state_dim,
@@ -51,9 +71,12 @@ class PPOAgent(BaseAgent):
         self.state_dim = state_dim
         self.action_dim = action_dim
 
+        # PPO hyperparameters
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.clip_epsilon = clip_epsilon
+        
+        # Optimization settings
         self.update_epochs = update_epochs
         self.batch_size = batch_size
         self.value_coef = value_coef
@@ -67,9 +90,11 @@ class PPOAgent(BaseAgent):
         self.model = PPOModel(state_dim, action_dim, hidden_dim).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
+        # Rollout memory is cleared after each PPO update
         self.clear_memory()
 
     def clear_memory(self):
+        """Clear the rollout buffer"""
         self.states = []
         self.actions = []
         self.log_probs = []
@@ -78,11 +103,13 @@ class PPOAgent(BaseAgent):
         self.values = []
 
     def _to_tensor(self, state):
+        """Convert one observation to a PyTorch tensor"""
         state = np.array(state, dtype=np.float32)
         state = torch.tensor(state, dtype=torch.float32, device=self.device)
         return state.unsqueeze(0)
 
     def choose_action(self, state):
+        """Sample an action from the current policy"""
         state_tensor = self._to_tensor(state)
 
         with torch.no_grad():
@@ -95,6 +122,7 @@ class PPOAgent(BaseAgent):
         return action.item(), log_prob.item(), value.item()
 
     def choose_greedy_action(self, state):
+        """Choose the action with the highest policy probability"""
         state_tensor = self._to_tensor(state)
 
         with torch.no_grad():
@@ -112,6 +140,7 @@ class PPOAgent(BaseAgent):
         pass
 
     def remember(self, state, action, log_prob, reward, done, value):
+        """Store one transition in the rollout buffer"""
         self.states.append(state)
         self.actions.append(action)
         self.log_probs.append(log_prob)
@@ -120,6 +149,7 @@ class PPOAgent(BaseAgent):
         self.values.append(value)
 
     def get_value(self, state):
+        """Return the critic's estimate V(s) for bootstrapping"""
         state_tensor = self._to_tensor(state)
 
         with torch.no_grad():
@@ -128,6 +158,7 @@ class PPOAgent(BaseAgent):
         return value.item()
 
     def compute_advantages(self, last_value):
+        """Compute GAE advantages and return targets"""
         advantages = []
         gae = 0
 
@@ -139,6 +170,7 @@ class PPOAgent(BaseAgent):
             else:
                 next_non_terminal = 1
 
+            # single step TD error
             delta = (
                 self.rewards[t]
                 + self.gamma * values[t + 1] * next_non_terminal
@@ -153,6 +185,7 @@ class PPOAgent(BaseAgent):
         return np.array(advantages, dtype=np.float32), np.array(returns, dtype=np.float32)
 
     def learn(self, last_value=0):
+        """Update the PPO policy using the collected rollout"""
         if len(self.states) == 0:
             return
 
@@ -209,6 +242,7 @@ class PPOAgent(BaseAgent):
 
                 critic_loss = nn.functional.mse_loss(values, batch_returns)
 
+                # Subtract entropy to encourage exploration
                 loss = (
                     actor_loss
                     + self.value_coef * critic_loss
@@ -222,7 +256,7 @@ class PPOAgent(BaseAgent):
         self.clear_memory()
 
     def save(self, path, obs_mode: str = "both") -> None:
-        """Save ppo agent and obs_mode to a .pt file."""
+        """Save ppo agent and obs_mode to a .pt file"""
         torch.save({
             "agent_type": "ppo",
             "obs_mode":   obs_mode,

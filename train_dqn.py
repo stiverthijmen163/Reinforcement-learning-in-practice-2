@@ -1,7 +1,7 @@
 """Train DQN Agent.
 
 This script trains a DQN agent to navigate a restaurant environment
-using continuous state representation with LiDAR sensors.
+using continuous state representation.
 """
 import random
 import sys
@@ -91,6 +91,19 @@ def run_greedy_evaluation(
     random_seed,
     reward_fn=None,
 ):
+    """Evaluate the current greedy policy.
+
+    DQN samples actions during training, but for evaluation we use the greedy
+    action with the highest policy probability. This makes the evaluation
+    deterministic with respect to the learned policy.
+
+    The environment stochasticity is set to sigma=0.0 so that early stopping
+    measures whether the learned policy itself has stabilized, not whether
+    random drift happened to help or hurt the agent.
+
+    Returns:
+        mean evaluation reward and success rate over eval_episodes.
+    """
     eval_rewards = []
     successes = []
 

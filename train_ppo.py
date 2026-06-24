@@ -1,3 +1,14 @@
+"""Train PPO Agent.
+
+This file can be used in two ways:
+1. Directly from the command line for quick PPO runs.
+2. Through evaluation/run_experiments.py, which calls main(...) directly.
+
+The agent receives one of three observation modes:
+- xy: robot coordinates
+- sensors: 8 lidar sensors
+- both: coordinates and sensor readings
+"""
 import random
 import sys
 from argparse import ArgumentParser
@@ -74,6 +85,10 @@ def parse_args():
 
 
 def parse_start_pos(start_pos):
+    """Parse a command-line start position of the form 'x,y'.
+
+    Returns None when no fixed start position is provided.
+    """
     if start_pos is None:
         return None
 
@@ -82,6 +97,7 @@ def parse_start_pos(start_pos):
 
 
 def set_seed(seed):
+    """Set random seeds for reproducible experiments."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -204,6 +220,19 @@ def run_greedy_evaluation(
     random_seed,
     reward_fn=None,
 ):
+    """Evaluate the current greedy policy.
+
+    PPO samples actions during training, but for evaluation we use the greedy
+    action with the highest policy probability. This makes the evaluation
+    deterministic with respect to the learned policy.
+
+    The environment stochasticity is set to sigma=0.0 so that early stopping
+    measures whether the learned policy itself has stabilized, not whether
+    random drift happened to help or hurt the agent.
+
+    Returns:
+        mean evaluation reward and success rate over eval_episodes.
+    """
     eval_rewards = []
     successes = []
 
@@ -261,9 +290,23 @@ def main(grid_paths, no_gui, sigma, fps, random_seed, start_pos,
          save_path=None, save_image=True, experiment_name=None,
          save_model=False, reward_fn=None, early_stop=False,
          start_pos_pool=None):
-    """PPO training loop compatible with run_experiments.py.
+    """Train PPO and return metrics used by the experiment pipeline.
 
-    Returns a dict with episode_rewards, episode_lengths, and eval_* metrics.
+    This function can be called by running this file or by
+    evaluation/run_experiments.py.
+
+    Args:
+        grid_paths: List of environment files.
+        no_gui: Whether to disable visualization during training.
+        sigma: Probability of stochastic drift during training.
+        start_pos: Fixed start position, or None to use the environment default.
+        start_pos_pool: Optional list of start positions. If provided, training
+            alternates through these start positions.
+        obs_mode: One of {"xy", "sensors", "both"}.
+
+    Returns:
+        Dictionary containing training rewards, episode lengths, early stopping
+        information, and final evaluation metrics.
     """
     random.seed(random_seed)
     np.random.seed(random_seed)
