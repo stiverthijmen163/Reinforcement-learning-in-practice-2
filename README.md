@@ -31,6 +31,40 @@ options:
   --start_pos START_POS      Agent start position as col,row (e.g. 2,3). If not set, the GUI lets you click to place it. In no_gui mode, defaults to random placement.
 ```
 
+## Report Results
+
+Commands to reproduce the runs and figures used in the report.
+
+### General Experiments
+
+_(commands and `config.py` settings for the main experiment sweep — TODO)_
+
+### Symmetric Ablation
+
+Tests whether an agent that only sees LiDAR `sensors` can still solve the task when the room is mirror-symmetric, compared against `obs_mode="both"`. Produces `trajectories_overlay_split.png`, the only figure from this test used in the report. This script doesn't read `evaluation/config.py`, its hyperparameters are set directly in `run_symmetric_ablation.py`.
+
+1. Build the room (`spaces/symmetric_2_space.pickle` is already committed, so this step is only needed if you want to regenerate it):
+
+```bash
+cd world
+python create_symmetric_2_space.py
+cd ..
+```
+
+2. Train all 4 agent/obs_mode combinations:
+
+```bash
+python -m evaluation.run_symmetric_ablation --run --space spaces/symmetric_2_space.pickle --run-dir results/experiments/symmetric_ablation_2
+```
+
+3. Generate the plots:
+
+```bash
+python -m evaluation.plot_eval
+```
+
+This writes both `trajectories_overlay.{pdf,png}` and `trajectories_overlay_split.{pdf,png}` to `results/eval_plots/symmetric_ablation_2/`. Only `trajectories_overlay_split` is the one used in the report.
+
 ## Code guide
 
 The code is made up of 2 modules: 
