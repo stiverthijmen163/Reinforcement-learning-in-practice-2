@@ -117,6 +117,35 @@ python train_dqn.py spaces/easy_space.pickle --gui
 
 It shows the agent's path, its LiDAR rays, and a HUD with episode/step/reward/epsilon. Controls: `Space` pause/resume, `T`/`C` auto-pause on target reached / on collision, `← →` scrub back through recent steps, drag the speed slider to change fps.
 
+### Evaluating a Saved Model — `evaluation/evaluate_model.py`
+
+Load a previously saved `.pt` model and run a greedy evaluation episode on any space. The agent type and `obs_mode` are read automatically from the model file, so you do not need to specify them:
+
+```bash
+python -m evaluation.evaluate_model results/saved_models/dqn_20260617.pt spaces/u_path_space.pickle
+```
+
+To override the starting position:
+
+```bash
+python -m evaluation.evaluate_model results/saved_models/dqn_20260617.pt spaces/u_path_space.pickle --start_pos 5.0,6.0
+```
+
+Passing a directory instead of a single file evaluates every `.pt` file in that directory:
+
+```bash
+python -m evaluation.evaluate_model results/saved_models/ spaces/u_path_space.pickle
+```
+
+Some other useful flags:
+
+- `--sigma SIGMA` — environment stochasticity during evaluation (default: `0.0`)
+- `--max_steps N` — maximum steps per evaluation episode (default: `250`)
+- `--sensor_range R` — sensor range, must match training (default: `10.0`)
+- `--random_seed SEED` — random seed for reproducibility (default: `0`)
+- `--no_image` — skip saving path and heatmap images
+- `--save_path PATH` — directory to save images (default: `results/eval_saved_models/`)
+
 ### Inspecting Spaces
 
 Print the contents of every space file in `spaces/` and view them side by side:
@@ -156,6 +185,8 @@ python -m evaluation.run_experiments --sequential
 Results are saved to `results/experiments/<timestamp>/`:
 - `experiment_results.csv` — one row per experiment with config + final eval metrics
 - `training_curves.csv` — episode reward and length per episode per experiment
+- `agent_paths.csv` — agent (x, y) position per step per experiment
+- `collisions.csv` — collision status per step per experiment
 - `exp_NNNN_heatmap.pdf` / `exp_NNNN.pdf` — path and heatmap images (if `SAVE_IMAGES = True`)
 
 ### 3. Analyze results — `evaluation/analyze_results.py`
@@ -169,7 +200,33 @@ Output is saved to `results/experiments/<timestamp>/analysis/`:
 - `training_curves_<param>_<agent>_<space>.png` — mean training curves with ± std band per parameter value
 - `best_configs.csv` — best-performing config per (agent, space) combination
 
-### 4. Symmetric Ablation — `evaluation/run_symmetric_ablation.py`, `aggregate_eval.py`, `plot_eval.py`
+### 4. Compare obs_mode and stochasticity — `evaluation/analyze_results_v2.py`
+
+This script is specifically designed to compare how **observation mode** (`xy`, `sensors`, `both`) and **stochasticity** (`sigma`) affect agent behaviour. It requires `SAVE_MODELS = True` in `config.py` so that saved model files are available for path rendering.
+
+```bash
+python -m evaluation.analyze_results_v2 results/experiments/<timestamp>
+```
+
+By default, the best-performing `obs_mode` per agent is used for the sigma and convergence plots. You can override this with `--obs_mode`:
+
+```bash
+python -m evaluation.analyze_results_v2 results/experiments/<timestamp> --obs_mode both
+```
+
+Other useful flags:
+
+- `--obs_mode {xy,sensors,both}` — fix a specific observation mode for the sigma/convergence plots instead of using the best one per agent
+- `--show_episodes_until N` — clip the x-axis of convergence plots at episode `N`
+
+Output is saved to `results/experiments/<timestamp>/analysis/`:
+- `paths_obs_modes.pdf` — overlaid paths for the best model per `obs_mode`, evaluated with σ=0
+- `paths_sigma.pdf` — overlaid paths across all sigma values, using the best `obs_mode` per agent
+- `convergence_sigma.pdf` — smoothed training reward per episode, one curve per sigma value
+- `convergence_obs_modes.pdf` — smoothed training reward per episode, one curve per `obs_mode`
+- `convergence_combined.pdf` — both sigma and obs_mode effects in one plot per agent
+
+### 5. Symmetric Ablation — `evaluation/run_symmetric_ablation.py`, `aggregate_eval.py`, `plot_eval.py`
 
 A symmetric room (`symmetric_2_space.pickle`) has two mirrored starting positions. An agent using only the LiDAR `sensors` observation can't tell the two starts apart, since the readings look identical from both sides. This checks whether that actually breaks the agent, by comparing it against `obs_mode="both"`, which can tell the difference.
 
