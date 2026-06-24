@@ -51,6 +51,7 @@ Commands to reproduce the runs and figures used in the report.
 ```bash
 python -m evaluation.analyze_results_v2 results\experiments\20260621_015914 --obs_mode both
 ```
+Afterwards, the results can be found under `results/experiments/20260621_015914` (or replace 20260621_015914), under the `analysis` folder the visualizations are saved.
 
 ### Symmetric Ablation
 
