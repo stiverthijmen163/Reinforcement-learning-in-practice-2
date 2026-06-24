@@ -42,7 +42,7 @@ Note that for these results, we ran 30 experiments which took, on a relatively g
 python world/create_symmetric_2_space.py
 python world/create_restaurant_2_space.py
 ```
-2. Run the experiments (NOT RECOMMENDED): We already pre-defined the experiments in `evaluation/run_experiments.py`, so no changes in `evaluation/config.py` have to be done:
+2. Run the experiments (NOT RECOMMENDED): We already pre-defined the experiments in `evaluation/run_experiments.py`, so no changes in `evaluation/config.py` have to be done. To speed up the process, you can try removing --sequential, this will run the experiments in parallel. However, this requires more memory than most of the TU/e laptops have so the program may crash:
 ```bash
 python evaluation/run_experiments.py --sequential
 ```
