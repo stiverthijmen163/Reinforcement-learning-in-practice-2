@@ -289,6 +289,7 @@ def _worker(args: tuple) -> tuple[dict, list[dict]]:
 
 def main(sequential: bool = False) -> None:
     # experiments = build_experiments()
+    # Instead of building experiment (grid-search), we set our own set of experiments
     experiments = [
         {'agent': 'ppo', 'space_path': WindowsPath('spaces/restaurant_2_space.pickle'), 'start_pos': None, 'sigma': 0.0,
          'episodes': 20000, 'max_steps': 500, 'learning_rate': 0.0001, 'gamma': 0.999, 'batch_size': 64,

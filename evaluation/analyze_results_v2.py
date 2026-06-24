@@ -110,21 +110,25 @@ def plot_paths_obs_modes(results_df, run_dir, out_dir, space_path):
     env_drawn = False
     legend_handles = []
 
+    # Go over each combination of (agent, obs_mode)
     for agent in sorted(results_df["agent"].unique()):
         for obs_mode, linestyle in OBS_LINESTYLES.items():
+            # Get the best experiment with (agent, obs_mode)
             row = get_best_experiment(results_df, agent, obs_mode)
-            if row is None:
+            if row is None:  # Ignore None rows
                 continue
             model_file = saved_model_path(run_dir, row["exp_id"])
             if not model_file.exists():
                 print(f"  Skipping {model_file.name} (not found)")
                 continue
 
+            # Collect the path of the agent's setting
             env, path = get_path(model_file, space_path, max_steps, sigma=0.0)
             if not env_drawn:
                 draw_env_background(ax, env)
                 env_drawn = True
 
+            # Plot the path
             xs = [p[0] for p in path]
             ys = [p[1] for p in path]
             line, = ax.plot(xs, ys, color=AGENT_COLORS[agent], linestyle=linestyle, linewidth=1.5, alpha=0.85)
@@ -150,24 +154,29 @@ def plot_paths_sigma(results_df, run_dir, out_dir, space_path, obs_mode_override
     env_drawn = False
     legend_handles = []
 
+    # Go over all combinations of (agent, sigma)
     for agent in sorted(results_df["agent"].unique()):
+        # Get the best performing obs_mode for the agent
         obs_mode = obs_mode_override or best_obs_mode_for(results_df, agent)
         print(f"  {agent.upper()}: obs_mode='{obs_mode}'")
 
         for sigma, linestyle in zip(sigmas, sigma_linestyles):
+            # Collect the best performing experiment
             row = get_experiment(results_df, agent, obs_mode, sigma)
-            if row is None:
+            if row is None:  # Skip None rows
                 continue
             model_file = saved_model_path(run_dir, row["exp_id"])
             if not model_file.exists():
                 print(f"  Skipping {model_file.name} (not found)")
                 continue
 
+            # Get the path taken by the agent
             env, path = get_path(model_file, space_path, max_steps, sigma)
             if not env_drawn:
                 draw_env_background(ax, env)
                 env_drawn = True
 
+            # Plot the path
             xs = [p[0] for p in path]
             ys = [p[1] for p in path]
             line, = ax.plot(xs, ys, color=AGENT_COLORS[agent], linestyle=linestyle, linewidth=1.5, alpha=0.85)
@@ -201,18 +210,22 @@ def plot_convergence(results_df, curves_df, out_dir, obs_mode_override=None, sho
     if len(agents) == 1:
         axes = [axes]
 
+    # Go over all combinations of (agent, sigma)
     for ax, agent in zip(axes, agents):
+        # Get best performing obs_mode for agent
         obs_mode = obs_mode_override or best_obs_mode_for(results_df, agent)
         for sigma, color in zip(sigmas, sigma_colors):
+            # Get best performing experiment
             row = get_experiment(results_df, agent, obs_mode, sigma)
-            if row is None:
+            if row is None:  # Skip None rows
                 continue
             episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
             if episode_data.empty:
                 continue
+
+            # Plot the data
             smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
-            ax.plot(np.arange(len(smoothed)), smoothed,
-                    color=color, linewidth=1.5, label=f"σ={sigma} ({obs_mode})")
+            ax.plot(np.arange(len(smoothed)), smoothed, color=color, linewidth=1.5, label=f"σ={sigma} ({obs_mode})")
         ax.legend(fontsize=9)
         ax.set_xlabel("Episode")
         ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
@@ -236,17 +249,20 @@ def plot_convergence_obs_modes(results_df, curves_df, out_dir, show_episodes_unt
 
     obs_mode_colors = {obs_mode: color for obs_mode, color in zip(OBS_LINESTYLES, plt.cm.tab10.colors)}
 
+    # Go over all combinations of (agent, obs_mode)
     for ax, agent in zip(axes, agents):
         for obs_mode in OBS_LINESTYLES:
+            # Get the best experiment for (agent, obs_mode)
             row = get_best_experiment(results_df, agent, obs_mode)
-            if row is None:
+            if row is None:  # Skip None rows
                 continue
             episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
             if episode_data.empty:
                 continue
+
+            # Plot the data
             smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
-            ax.plot(np.arange(len(smoothed)), smoothed,
-                    color=obs_mode_colors[obs_mode], linewidth=1.5, label=obs_mode)
+            ax.plot(np.arange(len(smoothed)), smoothed, color=obs_mode_colors[obs_mode], linewidth=1.5, label=obs_mode)
         ax.legend(fontsize=9)
         ax.set_xlabel("Episode")
         ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
@@ -276,42 +292,53 @@ def plot_convergence_combined(results_df, curves_df, out_dir, obs_mode_override=
     if len(agents) == 1:
         axes = [axes]
 
+    # Trackers to avoid duplicated rows plotting and plot scaling
     rows = []
     agents_max = {}
     for agent in agents:
         agents_max[agent] = 0
 
+    # OBS_MODES
+    # Go over all combinations of (agent, obs_mode)
     for ax, agent in zip(axes, agents):
         for obs_mode in OBS_LINESTYLES:
+            # Get the best performing experiment
             row = get_best_experiment(results_df, agent, obs_mode)
             rows.append((agent, row["sigma"], obs_mode))
-            if row is None:
+            if row is None:  # Skip None rows
                 continue
             episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
             if episode_data.empty:
                 continue
+            # Plot the data
             smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
-            if max(np.arange(len(smoothed))) > agents_max[agent]:
+            if max(np.arange(len(smoothed))) > agents_max[agent]:  # Track maximum x-value
                 agents_max[agent] = max(np.arange(len(smoothed)))
             ax.plot(np.arange(len(smoothed)), smoothed,
                     color=obs_mode_colors[obs_mode], linewidth=1.0, label=f"σ={row['sigma']} ({obs_mode})", alpha=0.5)
 
+    # SIGMA'S
+    # Go over all combinations of (agent, sigma)
     for ax, agent in zip(axes, agents):
+        # Get best performing obs_mode for the agent
         obs_mode = obs_mode_override or best_obs_mode_for(results_df, agent)
         for sigma, color in zip(sigmas, sigma_colors):
+            # Get the best performing experiment
             row = get_experiment(results_df, agent, obs_mode, sigma)
-            if (agent, row["sigma"], obs_mode) in rows:
+            if (agent, row["sigma"], obs_mode) in rows:  # Check if experiment is not already plotted
                 continue
-            if row is None:
+            if row is None:  # Skip None rows
                 continue
             episode_data = curves_df[curves_df["exp_id"] == int(row["exp_id"])].sort_values("episode")
             if episode_data.empty:
                 continue
+
+            # Plot the data
             smoothed = smooth(episode_data["episode_reward"].tolist(), SMOOTHING_WINDOW)
-            if max(np.arange(len(smoothed))) > agents_max[agent]:
+            if max(np.arange(len(smoothed))) > agents_max[agent]:  # Track the maximum x-value
                 agents_max[agent] = max(np.arange(len(smoothed)))
-            ax.plot(np.arange(len(smoothed)), smoothed,
-                    color=color, linewidth=1.0, label=f"σ={sigma} ({obs_mode})", alpha=0.5)
+            ax.plot(np.arange(len(smoothed)),
+                    smoothed, color=color, linewidth=1.0, label=f"σ={sigma} ({obs_mode})", alpha=0.5)
         ax.legend(fontsize=12)
         ax.set_xlabel("Episode")
         ax.set_ylabel(f"Reward (smoothed, window={SMOOTHING_WINDOW})")
@@ -319,7 +346,7 @@ def plot_convergence_combined(results_df, curves_df, out_dir, obs_mode_override=
         ax.grid(linestyle="--", alpha=0.3)
         if show_episodes_until is not None:
             ax.set_xlim(0, show_episodes_until)
-        else:
+        else:  # Set the limit from 0 to the maximum value of x
             ax.set_xlim(0, agents_max[agent])
 
     fig.tight_layout()

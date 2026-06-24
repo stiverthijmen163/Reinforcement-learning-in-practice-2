@@ -1,5 +1,5 @@
 """
-Train your RL Agent in this file. 
+Train your RL Agent in this file. Used for testing phase of the environment, before implementation of all other agents.
 """
 
 from argparse import ArgumentParser

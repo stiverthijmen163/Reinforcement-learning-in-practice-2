@@ -173,11 +173,8 @@ class Environment:
         self.x_max, self.y_max = space["bound"]
         self.agent_start_pos = self.agent_start_pos if self.agent_start_pos else space["starting_pos"]
         self.terminal_state = False
-        # print("\nRESET\n")
         self._reset_info()
         self._reset_world_stats()
-
-        ########################## IMPLEMENT GUI CODE IFF DESIRED ##########################
 
         self._initialize_agent_pos()
 
@@ -249,8 +246,6 @@ class Environment:
                  and a dictionary containing information regarding the step taken
         """
         self.world_stats["total_steps"] += 1
-
-        ########################## IMPLEMENT GUI CODE IFF DESIRED ##########################
 
         # Calculate next position based on the action
         action = ACTIONS[action_id]

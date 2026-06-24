@@ -32,12 +32,25 @@ options:
 ```
 
 ## Report Results
-
-Commands to reproduce the runs and figures used in the report.
-
+This section will explain how to reproduce the results from the report.
 ### General Experiments
 
-_(commands and `config.py` settings for the main experiment sweep — TODO)_
+This section describes all command to run to get to the same results as in the report.
+Note that for these results, we ran 30 experiments which took, on a relatively good pc, ~6 hours. We therefore do not recommend to run the experiments themselves, but only the visualizations.
+1. Create the restaurant spaces:
+```bash
+python world/create_symmetric_2_space.py
+python world/create_restaurant_2_space.py
+```
+2. Run the experiments (NOT RECOMMENDED): We already pre-defined the experiments in `evaluation/run_experiments.py`, so no changes in `evaluation/config.py` have to be done:
+```bash
+python evaluation/run_experiments.py --sequential
+```
+3. Create the visualizations for all experiments: Note that if you did run step 2, '20260621_015914' should be replaced by the save_folder that is created for that specific run, this will also be printed in your terminal.
+Commands to reproduce the runs and figures used in the report.
+```bash
+python -m evaluation.analyze_results_v2 results\experiments\20260621_015914 --obs_mode both
+```
 
 ### Symmetric Ablation
 
@@ -207,7 +220,7 @@ Edit this file to define what to run. The key settings are:
 - **`VERBOSE = False`** — set `True` to see full training output; `False` shows only the progress bar
 
 ### 2. Run experiments — `evaluation/run_experiments.py`
-
+(Note that currently, experiments are overwritten at line 292)
 ```bash
 # Run all experiments in parallel (fastest)
 python -m evaluation.run_experiments
